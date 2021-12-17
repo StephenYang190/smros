@@ -4,20 +4,34 @@
 
 #include "SumaSLAM.h"
 
-SumaSLAM::SumaSLAM() :
-net_(new RangenetAPI())
+SumaSLAM::SumaSLAM(std::string parameter_path)
 {
+    rv::ParameterList params;
+    parseXmlFile(parameter_path, params);
 
+    std::cout << "Init rangenet." << std::endl;
+    net_ = std::make_shared<RangenetAPI>(params);
+
+    current_frame_ = std::make_shared<Frame>(params);
+    last_frame_ = std::make_shared<Frame>(params);
 }
 
-bool SumaSLAM::transform(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyzi,
-                         pcl::PointCloud<pcl::PointXYZRGB> &point_clouds_rgb) 
+bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyzi)
 {
+    std::cout << "Transform data." << std::endl;
     int num_points = point_clouds_xyzi.points.size();
     // store pointcloud in vector type
     std::vector<float> points_xyzi_list(num_points * 4);
 
-    // transform pointcloud to vector and laser scan
+    // frame parameter reference
+    pcl::PointCloud<pcl::PointXYZRGB>& point_clouds_rgb = current_frame_->setPointCloud();
+    std::vector<int>& labels = current_frame_->setLabels();
+    std::vector<float>& labels_prob = current_frame_->setLabelProbability();
+    // resize
+    pcl::copyPointCloud(point_clouds_xyzi, point_clouds_rgb);
+    labels.resize(num_points);
+    labels_prob.resize(num_points);
+    // transform pointcloud to vector
     for(int i = 0; i < num_points; i++)
     {
         int iter = i * 4;
@@ -28,7 +42,7 @@ bool SumaSLAM::transform(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyzi
     }
     // get semantic result
     std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
-
+    // match the label from label_map and color the point cloud
     for(int i = 0; i < num_points; i++)
     {
         float prob = 0;
@@ -41,14 +55,15 @@ bool SumaSLAM::transform(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyzi
                 index = k;
             }
         }
-        int label = net_->getLabel(index);
+        labels[i] = net_->getLabel(index);
         labels_prob[i] = prob;
         // get semantic point cloud
-        net_->setColorMap(label);
+        net_->setColorMap(labels[i]);
         point_clouds_rgb.points[i].r = net_->getColorR();
         point_clouds_rgb.points[i].g = net_->getColorG();
         point_clouds_rgb.points[i].b = net_->getColorB();
     }
-    return false;
+
+    return true;
 }
 

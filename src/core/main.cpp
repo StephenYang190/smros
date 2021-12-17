@@ -5,11 +5,11 @@
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include "point2surfel.h"
+#include "SumaSLAM.h"
 
 
 ros::Publisher pub;
-Point2Surfel point_2_surfel;
+SumaSLAM sumaslam();
 
 // Callbcak function
 void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
@@ -27,7 +27,6 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
     auto pointcloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::copyPointCloud(*pointcloud_xyzi, *pointcloud_rgb);
 
-    point_2_surfel.transform(*pointcloud_xyzi, *pointcloud_rgb);
     ROS_INFO_STREAM("Output Point numbers: " << pointcloud_rgb->points.size());
     ROS_INFO_STREAM("End1.");
 
