@@ -3,20 +3,21 @@
 //
 
 #include "SumaSLAM.h"
+#include <pcl/registration/icp.h>
 
 SumaSLAM::SumaSLAM(std::string parameter_path)
 {
-    rv::ParameterList params;
-    parseXmlFile(parameter_path, params);
+    parseXmlFile(parameter_path, params_);
 
     std::cout << "Init rangenet." << std::endl;
-    net_ = std::make_shared<RangenetAPI>(params);
+    net_ = std::make_shared<RangenetAPI>(params_);
 
-    current_frame_ = std::make_shared<Frame>(params);
-    last_frame_ = std::make_shared<Frame>(params);
+    current_frame_ = std::make_shared<Frame>(params_);
+
+    timestamp_ = 0;
 }
 
-bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyzi)
+bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi)
 {
     std::cout << "Transform data." << std::endl;
     int num_points = point_clouds_xyzi.points.size();
@@ -63,6 +64,40 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> point_clouds_xyz
         point_clouds_rgb.points[i].g = net_->getColorG();
         point_clouds_rgb.points[i].b = net_->getColorB();
     }
+
+    return true;
+}
+
+bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
+    if(timestamp_ == 0)
+    {
+        return initialSystem(point_clouds_xyzi);
+    }
+    last_frame_ = current_frame_;
+    current_frame_ = std::make_shared<Frame>(params_);
+    preprocess(point_clouds_xyzi);
+    odometry();
+
+    timestamp_++;
+    return true;
+}
+
+bool SumaSLAM::initialSystem(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
+    preprocess(point_clouds_xyzi);
+
+    timestamp_++;
+    return true;
+}
+
+bool SumaSLAM::odometry() {
+    pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
+
+    icp.setInputSource(current_frame_->getPointCloudsPtr());
+    icp.setInputTarget(last_frame_->getPointCloudsPtr());
+
+    icp.align(odometry_result_);
+
+    map_->pushBackPose(icp.getFinalTransformation());
 
     return true;
 }

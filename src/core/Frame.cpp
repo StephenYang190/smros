@@ -23,6 +23,7 @@ Frame::Frame(rv::ParameterList parameter_list) :
     {
         maps_[i].resize(height_);
     }
+    p_ = std::max(width_ / float(360.0), height_ / fov_);
 }
 
 Frame::~Frame() {
@@ -53,6 +54,8 @@ bool Frame::generateMap() {
         maps_[u][v].vertex_map[2] = z;
 
         maps_[u][v].semantic_map = labels_[i];
+
+        maps_[u][v].radius = r_xyz * r_xyz;
     }
     // compute normal
     for(int u = 0; u < width_; u++)
@@ -63,6 +66,12 @@ bool Frame::generateMap() {
             Eigen::Vector3d v1 = (v + 1 < height_ ? maps_[u][v + 1].vertex_map : maps_[u][0].vertex_map);
 
             maps_[u][v].normal_map = (u1 - maps_[u][v].vertex_map).cross(v1 - maps_[u][v].vertex_map);
+
+            // compute radius
+            float molecular = sqrt(2.0) * maps_[u][v].radius * p_;
+            double dis = -1.0 * maps_[u][v].vertex_map.dot(maps_[u][v].normal_map) / maps_[u][v].radius;
+            float denominator = std::min(1.0, std::max(dis, 0.5));
+            maps_[u][v].radius = molecular / denominator;
         }
     }
     return true;

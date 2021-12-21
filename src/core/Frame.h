@@ -17,6 +17,7 @@ namespace frm{
         Eigen::Vector3d vertex_map;
         Eigen::Vector3d normal_map;
         float semantic_map;
+        float radius;
     };
 }
 
@@ -28,6 +29,7 @@ private:
     std::vector<std::vector<frm::map>> maps_;
     std::vector<int> labels_;
     std::vector<float> label_probability_;
+    float p_;
 
 public:
     Frame(rv::ParameterList parameter_list);
@@ -36,7 +38,9 @@ public:
     bool generateMap();
     std::vector<int> & setLabels() {return labels_;}
     std::vector<float> & setLabelProbability() {return label_probability_;}
-
+    const pcl::PointCloud<pcl::PointXYZRGB>& getPointClouds() {return pointcloud_;}
+    const pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPointCloudsPtr() {return pointcloud_.makeShared();}
+    const std::vector<std::vector<frm::map>> & getMaps() const {return maps_;};
 };
 
 

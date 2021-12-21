@@ -5,10 +5,10 @@
 <param name="skip train" type="boolean">false</param>
 
  <!--  data resolution: depending on sensor  -->
-<param name="data_width" type="integer">900</param>
-<param name="data_height" type="integer">64</param>
-<param name="data_fov_up" type="float">3.0</param>
-<param name="data_fov_down" type="float">-25.0</param>
+<param name="width" type="integer">1024</param>
+<param name="height" type="integer">64</param>
+<param name="fov_up" type="float">3.0</param>
+<param name="fov_down" type="float">-25.0</param>
 <param name="max_depth" type="float">75.0</param>
 <param name="min_depth" type="float">2.0</param>
 <param name="min_yaw" type="float">0.0</param>

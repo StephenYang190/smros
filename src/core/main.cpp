@@ -9,7 +9,7 @@
 
 
 ros::Publisher pub;
-SumaSLAM sumaslam();
+SumaSLAM sumaslam;
 
 // Callbcak function
 void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
@@ -24,6 +24,8 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
     // processing
     ROS_INFO_STREAM("Begin.");
     ROS_INFO_STREAM("Input Point numbers: " << pointcloud_xyzi->points.size());
+    sumaslam.step(*pointcloud_xyzi);
+
     auto pointcloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::copyPointCloud(*pointcloud_xyzi, *pointcloud_rgb);
 
