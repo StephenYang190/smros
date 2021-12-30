@@ -2,14 +2,10 @@
 // Created by tongda on 2021/12/16.
 //
 
-#include <ros/ros.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include "SumaSLAM.h"
 
 
-ros::Publisher pub;
-SumaSLAM sumaslam;
+SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/catkin_ws/src/smros/config/default.xml");
 
 // Callbcak function
 void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
@@ -22,30 +18,53 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
     pcl::fromROSMsg(*pointCloud2, *pointcloud_xyzi);
 
     // processing
-    ROS_INFO_STREAM("Begin.");
-    ROS_INFO_STREAM("Input Point numbers: " << pointcloud_xyzi->points.size());
+//    ROS_INFO_STREAM("Begin.");
+//    ROS_INFO_STREAM("Input Point numbers: " << pointcloud_xyzi->points.size());
     sumaslam.step(*pointcloud_xyzi);
 
-    auto pointcloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::copyPointCloud(*pointcloud_xyzi, *pointcloud_rgb);
+//    auto pointcloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+//    sumaslam.generateMap(*pointcloud);
+//    std::cout << "number of points in active map: " << pointcloud->size() << std::endl;
 
-    ROS_INFO_STREAM("Output Point numbers: " << pointcloud_rgb->points.size());
-    ROS_INFO_STREAM("End1.");
+//    ROS_INFO_STREAM("Output Point numbers: " << pointcloud_rgb->points.size());
+//    ROS_INFO_STREAM("End1.");
 
-    sensor_msgs::PointCloud2 msg;
-    pcl::toROSMsg(*pointcloud_rgb, msg);
-    pub.publish(msg);
+//    sensor_msgs::PointCloud2 msg;
+//    pcl::toROSMsg(*pointcloud, msg);
+//    pub.publish(msg);
 }
 
 int main(int argc, char** argv)
 {
     ros::init (argc, argv, "semantic_mapping");
     ros::NodeHandle nh;
-    // pub difine
-    pub = nh.advertise<sensor_msgs::PointCloud2> ("SemanticMap", 1000);
 
-    // sub difine
-    ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2>("velodyne_points", 1, kittiPointCloudReceive);
+    sumaslam.init();
+    sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/");
 
-    ros::spin();
+//    ros::Rate rate(2);
+//    ros::AsyncSpinner spinner(1);
+//    spinner.start();
+//    // pub difine
+//    ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2> ("SemanticMap", 1000);
+//
+//    // sub difine
+//    ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2>("velodyne_points", 1, kittiPointCloudReceive);
+//
+//    while(ros::ok())
+//    {
+//        auto pointcloud(new pcl::PointCloud<Surfel>);
+//        if(!sumaslam.generateMap(*pointcloud))
+//        {
+//            rate.sleep();
+//            continue;
+//        }
+//        sensor_msgs::PointCloud2 msg;
+//        pcl::toROSMsg(*pointcloud, msg);
+//        msg.header.frame_id = "velodyne";
+//        pub.publish(msg);
+//        rate.sleep();
+//    }
+
+    return 1;
 }
