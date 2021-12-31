@@ -1,10 +1,7 @@
 
 #include "SumaSLAM.h"
 
-#include <pcl/registration/icp.h>
-#include <ros/ros.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/registration/ndt.h>
+
 
 SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     odometry_result_()
@@ -27,31 +24,37 @@ void SumaSLAM::init()
     pub2 = nh.advertise<sensor_msgs::PointCloud2> ("target", 1000);
     pub3 = nh.advertise<sensor_msgs::PointCloud2> ("output", 1000);
     pub = nh.advertise<sensor_msgs::PointCloud2> ("SemanticMap", 1000);
+    inposes.open("/home/tongda/workspace/kitti_00_pose_velodyne_local.txt");
+    if(inposes.is_open())
+    {
+
+    }
 }
 
 bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi)
 {
     std::clock_t start_time = std::clock();
-    int num_points = point_clouds_xyzi.points.size();
-    // store pointcloud in vector type
-    std::vector<float> points_xyzi_list(num_points * 4);
-
     // frame parameter reference
     auto& point_clouds_surfel = current_frame_->setPointCloud();
     std::vector<int>& labels = current_frame_->setLabels();
     std::vector<float>& labels_prob = current_frame_->setLabelProbability();
-    // resize
+    // set point
     pcl::copyPointCloud(point_clouds_xyzi, point_clouds_surfel);
+    // generate surfel
+    current_frame_->generateSurfel(timestamp_);
+    int num_points = current_frame_->getPointNum();
+    // store pointcloud in vector type
+    std::vector<float> points_xyzi_list(num_points * 4);
     labels.resize(num_points);
     labels_prob.resize(num_points);
     // transform pointcloud to vector
     for(int i = 0; i < num_points; i++)
     {
         int iter = i * 4;
-        points_xyzi_list[iter] = point_clouds_xyzi.points[i].x;
-        points_xyzi_list[iter + 1] = point_clouds_xyzi.points[i].y;
-        points_xyzi_list[iter + 2] = point_clouds_xyzi.points[i].z;
-        points_xyzi_list[iter + 3] = point_clouds_xyzi.points[i].data[3];
+        points_xyzi_list[iter] = point_clouds_surfel.points[i].x;
+        points_xyzi_list[iter + 1] = point_clouds_surfel.points[i].y;
+        points_xyzi_list[iter + 2] = point_clouds_surfel.points[i].z;
+        points_xyzi_list[iter + 3] = point_clouds_surfel.points[i].data[3];
     }
     // get semantic result
     std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
@@ -78,9 +81,26 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
         point_clouds_surfel.points[i].b = net_->getColorB() / 256.0;
     }
 
-    current_frame_->generateMap(timestamp_);
     std::clock_t end_time = std::clock();
 //    std::cout << "preprocess points in suma slam. " << "using " << (float)(end_time - start_time) / CLOCKS_PER_SEC << std::endl;
+
+    return true;
+}
+
+bool SumaSLAM::readPose(int timestamp)
+{
+    float poes[12];
+    for(int i = 0; i < 12; i++)
+    {
+        inposes >> poes[i];
+    }
+    Eigen::Matrix4f pose;
+    pose << poes[0], poes[1], poes[2], poes[3],
+            poes[4], poes[5], poes[6], poes[7],
+            poes[8], poes[9], poes[10], poes[11],
+            0, 0, 0, 1;
+
+    map_->pushBackPose(pose);
 
     return true;
 }
@@ -95,6 +115,7 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     preprocess(point_clouds_xyzi);
     std::cout << "Preprocess using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
     odometry();
+//    readPose(timestamp_);
     std::cout << "Odometry using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
     map_->updateMap(mapping_, timestamp_, current_frame_);
     std::cout << "Update Map using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
@@ -109,57 +130,51 @@ bool SumaSLAM::initialSystem(const pcl::PointCloud<pcl::PointXYZI> & point_cloud
     preprocess(point_clouds_xyzi);
 //    current_frame_->generateMap();
     map_->mapInitial(current_frame_->getPointClouds());
+    readPose(0);
     timestamp_++;
     return true;
 }
 
 bool SumaSLAM::odometry() {
-//    std::cout << "odometry in suma slam." << std::endl;
-    pcl::IterativeClosestPoint<Surfel, Surfel> icp;
-
-//    std::cout << "points number for icp: " << std::endl;
-//    std::cout << "current_frame: " << current_frame_->getPointClouds().size() << std::endl;
-//    std::cout << "active map: " << map_->getPointNum() << std::endl;
-
     std::clock_t t1 = std::clock();
     map_->generateActiveMap(timestamp_);
     std::clock_t t2 = std::clock();
-    icp.setInputSource(current_frame_->getPointCloudsPtr());
-    icp.setInputTarget(map_->getActiveMapPtr());
-    icp.setMaxCorrespondenceDistance(0.05);
-    icp.setMaximumIterations(30);
 
-    icp.align(odometry_result_);
+    pcl::PointCloud<Surfel>::Ptr filtered_cloud (new pcl::PointCloud<Surfel>);
+    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
+    approximate_voxel_filter.setLeafSize (0.1, 0.1, 0.1);
+    approximate_voxel_filter.setInputCloud (current_frame_->getPointCloudsPtr());
+    approximate_voxel_filter.filter (*filtered_cloud);
+
+    pclomp::NormalDistributionsTransform<Surfel, Surfel> ndt;
+
+    ndt.setTransformationEpsilon (0.01);
+    // Setting maximum step size for More-Thuente line search.
+    ndt.setStepSize (0.1);
+    //Setting Resolution of NDT grid structure (VoxelGridCovariance).
+    ndt.setResolution (1.0);
+
+    // Setting max number of registration iterations.
+    ndt.setMaximumIterations (35);
+
+    // Setting point cloud to be aligned.
+    ndt.setInputSource (filtered_cloud);
+    // Setting point cloud to be aligned to.
+    ndt.setInputTarget (map_->getActiveMapPtr());
+
+    // Calculating required rigid transform to align the input cloud to the target cloud.
+    ndt.align (odometry_result_, map_->getPose(timestamp_ - 1));
+
     std::clock_t t3 = std::clock();
 
-    mapping_ = icp.correspondences_;
-
     std::cout << "render active map using: " << (float)(t2 - t1) / CLOCKS_PER_SEC <<
-    " have: " << current_frame_->getPointCloudsPtr()->size() << " as input and " <<
-    map_->getActiveMapPtr()->size() << std::endl;
-    std::cout << "mapping: " << mapping_->size() << std::endl;
-    std::cout << "icp using: " << (float)(t3 - t2) / CLOCKS_PER_SEC << std::endl;
-//    std::cout << icp.getFinalTransformation().block<3, 1>(0, 3) << std::endl;
-    std::cout << icp.getFinalTransformation() << std::endl;
+              " have: " << current_frame_->getPointCloudsPtr()->size() << " as input and " <<
+              map_->getActiveMapPtr()->size() << std::endl;
+    std::cout << "ndt using: " << (float)(t3 - t2) / CLOCKS_PER_SEC << std::endl;
+    std::cout << ndt.getFinalTransformation() << std::endl;
 
-    map_->pushBackPose(icp.getFinalTransformation());
+    map_->pushBackPose(ndt.getFinalTransformation());
 
-//    pcl::PointCloud<pcl::PointXYZRGB> cloud;
-//    pcl::copyPointCloud(odometry_result_, cloud);
-//    pcl::PointCloud<pcl::PointXYZRGB> cloud1;
-//    pcl::copyPointCloud(*map_->getActiveMapPtr(), cloud1);
-//    for (int i = 0; i < cloud.size(); ++i) {
-//        cloud.points[i].r = 100;
-//    }
-//    for (int i = 0; i < cloud1.size(); ++i) {
-//        cloud1.points[i].b = 100;
-//    }
-//    pcl::visualization::CloudViewer viewer ("Simple Cloud Viewer");
-//    viewer.showCloud ((cloud + cloud1).makeShared());
-//    while (!viewer.wasStopped ())
-//    {
-//
-//    }
 //    sensor_msgs::PointCloud2 msg1, msg2, msg3;
 //    pcl::toROSMsg(*current_frame_->getPointCloudsPtr(), msg1);
 //    pcl::toROSMsg(*map_->getActiveMapPtr(), msg2);
@@ -226,27 +241,29 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
         pcl::io::loadPCDFile<pcl::PointXYZI>(dir_path + file, *pointcloud);
         step(*pointcloud);
 
-        auto pointcloud1(new pcl::PointCloud<Surfel>);
-        generateMap(*pointcloud1);
-        std::cout << "render map. have: " << pointcloud1->size() << std::endl;
-//        auto pointcloud2(new pcl::PointCloud<pcl::PointXYZRGB>);
-//        pcl::copyPointCloud(*pointcloud1, *pointcloud2);
-//        for(int i = 0; i < pointcloud2->size(); i++)
-//        {
-//            pointcloud2->points[i].r = pointcloud1->points[i].r * 256;
-//            pointcloud2->points[i].g = pointcloud1->points[i].g * 256;
-//            pointcloud2->points[i].b = pointcloud1->points[i].b * 256;
-//        }
+        if(timestamp_ % 10 == 9)
+        {
+            auto global_points(new pcl::PointCloud<Surfel>);
+            generateMap(*global_points);
 
+            pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
+            approximate_voxel_filter.setLeafSize(0.1, 0.1, 0.1);
+            approximate_voxel_filter.setInputCloud(global_points->makeShared());
+            approximate_voxel_filter.filter(*global_points);
+            std::cout << "render map. have: " << global_points->size() << std::endl;
             sensor_msgs::PointCloud2 msg;
-            pcl::toROSMsg(*pointcloud1, msg);
+            pcl::toROSMsg(*global_points, msg);
             msg.header.frame_id = "velodyne";
             pub.publish(msg);
 
+            pcl::PointCloud<Surfel>::Ptr active_points;
+            map_->generateActiveMap(timestamp_);
+            active_points = map_->getActiveMapPtr();
             sensor_msgs::PointCloud2 msg1;
-            pcl::toROSMsg(map_->getMyGlobalMap(), msg1);
-            msg1.header.frame_id = "velodyne";
-            pub1.publish(msg1);
+            pcl::toROSMsg(*active_points, msg);
+            msg.header.frame_id = "velodyne";
+            pub1.publish(msg);
+        }
     }
 
 

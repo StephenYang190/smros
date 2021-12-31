@@ -32,7 +32,6 @@ private:
     float confidence_thred_;
     int time_gap_;
     Eigen::Matrix4f init_pose_;
-    pcl::PointCloud<Surfel> my_global_map_;
 
 public:
     SurfelMap(rv::ParameterList parameter_list);
@@ -42,11 +41,8 @@ public:
     bool updateMap(const Frame & current_frame, int timestamp);
     bool updateMap(const pcl::PointCloud<Surfel> & align_point,
                    const pcl::CorrespondencesPtr mapping, int timestamp, std::shared_ptr<Frame> current_frame);
-    bool mapInitial(const pcl::PointCloud<Surfel> & pointcloud);
+    bool mapInitial(const pcl::PointCloud<Surfel> & pointcloud, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity());
     float updateConfidence(float confidence, float angle_2, float distance_2);
-    bool initialSurfel(frm::map new_surfel, int timestamp, Surfel & surfel);
-    bool initialSurfel(int timestamp, Surfel & surfel);
-    bool updateActiveMap(int timestamp);
     bool generateMap(pcl::PointCloud<Surfel> & global_map);
     const pcl::PointCloud<Surfel>::Ptr getActiveMapPtr() {return active_map_.makeShared();}
     float getInitConfidence() {return initial_confidence_;}
@@ -54,7 +50,6 @@ public:
     bool generateActiveMap(int timestamp);
     bool updateMap(const pcl::CorrespondencesPtr mapping,
                               int timestamp, std::shared_ptr<Frame> current_frame);
-    pcl::PointCloud<Surfel> & getMyGlobalMap() {return my_global_map_;}
 };
 
 

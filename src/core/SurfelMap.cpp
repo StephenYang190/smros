@@ -24,8 +24,7 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list):
         gamma_(parameter_list["gamma"]),
         confidence_thred_(parameter_list["confidence_threshold"]),
         time_gap_(parameter_list["time_gap"]),
-        init_pose_(Eigen::Matrix4f::Identity()),
-        my_global_map_()
+        init_pose_(Eigen::Matrix4f::Identity())
 {
     odds_p_prior_ = std::log(p_prior_ / (1 - p_prior_));
     initial_confidence_ = std::log(p_stable_ / (1 - p_stable_)) - odds_p_prior_;
@@ -47,11 +46,11 @@ Eigen::Matrix4f SurfelMap::getPose(int timestamp) {
     return poses_[timestamp];
 }
 
-bool SurfelMap::mapInitial(const pcl::PointCloud<Surfel> & pointcloud)
+bool SurfelMap::mapInitial(const pcl::PointCloud<Surfel> & pointcloud, Eigen::Matrix4f init_pose)
 {
     std::clock_t start_time = std::clock();
     // push init pose
-    poses_.push_back(Eigen::Matrix4f::Identity());
+//    poses_.push_back(init_pose);
 
     // create map
     surfels_.push_back(pointcloud);
@@ -68,74 +67,6 @@ float SurfelMap::updateConfidence(float confidence, float angle_2, float distanc
     return confidence + odds_p_stable - odds_p_prior_;
 }
 
-bool SurfelMap::initialSurfel(frm::map new_surfel, int timestamp, Surfel & surfel)
-{
-    surfel.x = new_surfel.vertex_map[0];
-    surfel.y = new_surfel.vertex_map[1];
-    surfel.z = new_surfel.vertex_map[2];
-
-    surfel.radius = new_surfel.radius;
-
-    surfel.nx = new_surfel.normal_map[0];
-    surfel.ny = new_surfel.normal_map[1];
-    surfel.nz = new_surfel.normal_map[2];
-
-    surfel.create_timestamp = timestamp;
-    surfel.update_timestamp = timestamp;
-
-    surfel.confidence = initial_confidence_;
-
-    return true;
-}
-
-bool SurfelMap::initialSurfel(int timestamp, Surfel & surfel)
-{
-    surfel.create_timestamp = timestamp;
-    surfel.update_timestamp = timestamp;
-
-    surfel.confidence = initial_confidence_;
-
-    return true;
-}
-
-bool SurfelMap::updateActiveMap(int timestamp)
-{
-    std::clock_t start_time = std::clock();
-
-    for(int i = 0; i < active_map_.size(); i++)
-    {
-        int cr_time = active_map_[i].create_timestamp;
-        int up_time = active_map_[i].update_timestamp;
-//        if(active_map_[i].confidence < confidence_thred_)
-//        {
-//            active_map_[i].x = NAN;
-//        }
-
-//        std::cout << active_map_[i].update_timestamp << " < " << timestamp - time_gap_ << std::endl;
-        if(cr_time < (timestamp - time_gap_))
-        {
-            if(cr_time >= surfels_.size())
-            {
-                while (surfels_.size() <= cr_time)
-                {
-                    pcl::PointCloud<Surfel> new_time_clouds;
-                    surfels_.push_back(new_time_clouds);
-                }
-            }
-            surfels_[cr_time].push_back(active_map_[i]);
-            active_map_[i].x = NAN;
-        }
-    }
-
-    std::vector<int> mapping;
-    active_map_.is_dense = false;
-    pcl::removeNaNFromPointCloud(active_map_, active_map_, mapping);
-
-    std::clock_t end_time = std::clock();
-    std::cout << "Updating active map in surfel map. " << "using " << (float)(end_time - start_time) / CLOCKS_PER_SEC << std::endl;
-    return true;
-}
-
 bool SurfelMap::generateMap(pcl::PointCloud<Surfel> & global_map)
 {
     if (surfels_.empty())
@@ -145,14 +76,10 @@ bool SurfelMap::generateMap(pcl::PointCloud<Surfel> & global_map)
     Eigen::Matrix4f pose = Eigen::Matrix4f::Identity();
     for(int i = 0; i < surfels_.size(); i++)
     {
-        pose *= poses_[i];
+        pose = pose * poses_[i];
         pcl::PointCloud<Surfel> transform_result;
         pcl::transformPointCloud(surfels_[i], transform_result, pose);
         global_map += transform_result;
-        if(i == surfels_.size() - 1)
-        {
-            my_global_map_ += transform_result;
-        }
     }
 
     return true;
@@ -247,47 +174,47 @@ bool SurfelMap::updateMap(const pcl::CorrespondencesPtr mapping,
     int num_point = pointcloud->size();
     std::vector<bool> updated_point(num_point, false);
 
-    for(int i = 0; i < mapping->size(); i++)
-    {
-        int src_index = (*mapping)[i].index_query;
-        int tgt_index = (*mapping)[i].index_match;
-
-        updated_point[src_index] = true;
-        // get nearest point data
-        Eigen::Vector3d vsp({transform_result[tgt_index].x, transform_result[tgt_index].y, transform_result[tgt_index].z});
-        Eigen::Vector3d nsp({transform_result[tgt_index].nx, transform_result[tgt_index].ny, transform_result[tgt_index].nz});
-        float rsp = transform_result[tgt_index].radius;
-
-        Eigen::Vector3d vs({pointcloud->points[src_index].x, pointcloud->points[src_index].y, pointcloud->points[src_index].z});
-        Eigen::Vector3d ns({pointcloud->points[src_index].nx, pointcloud->points[src_index].ny, pointcloud->points[src_index].nz});
-        std::cout << "vs:" << vs << std::endl;
-        std::cout << "vsp:" << vsp << std::endl;
-        float rs = pointcloud->points[src_index].radius;
-        // compute reference
-        float metric1 = std::abs(nsp.dot(vs - vsp));
-        Eigen::Vector3d normal_ns_nsp = ns.cross(nsp);
-        float metric2 = std::sqrt(normal_ns_nsp.dot(normal_ns_nsp));
-        // verify threshold
-        if(metric1 < distance_thred_ && metric2 < angle_thred_ && rsp < rs)
-        {
-
-//            pointcloud->points[src_index].x = (1 - gamma_) * pointcloud->points[src_index].x + gamma_ * transform_result[tgt_index].x;
-//            pointcloud->points[src_index].y = (1 - gamma_) * pointcloud->points[src_index].y + gamma_ * transform_result[tgt_index].y;
-//            pointcloud->points[src_index].z = (1 - gamma_) * pointcloud->points[src_index].z + gamma_ * transform_result[tgt_index].z;
+//    for(int i = 0; i < mapping->size(); i++)
+//    {
+//        int src_index = (*mapping)[i].index_query;
+//        int tgt_index = (*mapping)[i].index_match;
 //
-//            pointcloud->points[src_index].nx = (1 - gamma_) * pointcloud->points[src_index].nx + gamma_ * transform_result[tgt_index].nx;
-//            pointcloud->points[src_index].ny = (1 - gamma_) * pointcloud->points[src_index].ny + gamma_ * transform_result[tgt_index].ny;
-//            pointcloud->points[src_index].nz = (1 - gamma_) * pointcloud->points[src_index].nz + gamma_ * transform_result[tgt_index].nz;
+//        updated_point[src_index] = true;
+//        // get nearest point data
+//        Eigen::Vector3d vsp({transform_result[tgt_index].x, transform_result[tgt_index].y, transform_result[tgt_index].z});
+//        Eigen::Vector3d nsp({transform_result[tgt_index].nx, transform_result[tgt_index].ny, transform_result[tgt_index].nz});
+//        float rsp = transform_result[tgt_index].radius;
 //
-//            pointcloud->points[src_index].radius = pointcloud->points[src_index].radius;
-        }
-
-        else
-        {
-//            surfels_[timestamp].push_back(pointcloud->points[src_index]);
-        }
-
-    }
+//        Eigen::Vector3d vs({pointcloud->points[src_index].x, pointcloud->points[src_index].y, pointcloud->points[src_index].z});
+//        Eigen::Vector3d ns({pointcloud->points[src_index].nx, pointcloud->points[src_index].ny, pointcloud->points[src_index].nz});
+//        std::cout << "vs:" << vs << std::endl;
+//        std::cout << "vsp:" << vsp << std::endl;
+//        float rs = pointcloud->points[src_index].radius;
+//        // compute reference
+//        float metric1 = std::abs(nsp.dot(vs - vsp));
+//        Eigen::Vector3d normal_ns_nsp = ns.cross(nsp);
+//        float metric2 = std::sqrt(normal_ns_nsp.dot(normal_ns_nsp));
+//        // verify threshold
+//        if(metric1 < distance_thred_ && metric2 < angle_thred_ && rsp < rs)
+//        {
+//
+////            pointcloud->points[src_index].x = (1 - gamma_) * pointcloud->points[src_index].x + gamma_ * transform_result[tgt_index].x;
+////            pointcloud->points[src_index].y = (1 - gamma_) * pointcloud->points[src_index].y + gamma_ * transform_result[tgt_index].y;
+////            pointcloud->points[src_index].z = (1 - gamma_) * pointcloud->points[src_index].z + gamma_ * transform_result[tgt_index].z;
+////
+////            pointcloud->points[src_index].nx = (1 - gamma_) * pointcloud->points[src_index].nx + gamma_ * transform_result[tgt_index].nx;
+////            pointcloud->points[src_index].ny = (1 - gamma_) * pointcloud->points[src_index].ny + gamma_ * transform_result[tgt_index].ny;
+////            pointcloud->points[src_index].nz = (1 - gamma_) * pointcloud->points[src_index].nz + gamma_ * transform_result[tgt_index].nz;
+////
+////            pointcloud->points[src_index].radius = pointcloud->points[src_index].radius;
+//        }
+//
+//        else
+//        {
+////            surfels_[timestamp].push_back(pointcloud->points[src_index]);
+//        }
+//
+//    }
 
     for(int i = 0; i < num_point; i++)
     {
@@ -315,7 +242,7 @@ bool SurfelMap::generateActiveMap(int timestamp)
     active_map_ += surfels_[timestamp - 1];
     for(int i = timestamp - 1; i > timestamp - time_gap_ && i > 0; i--)
     {
-        pose *= poses_[i].inverse();
+        pose = pose * poses_[i].inverse();
         pcl::PointCloud<Surfel> transform_result;
         pcl::transformPointCloud(surfels_[i - 1], transform_result, pose);
         active_map_ += transform_result;

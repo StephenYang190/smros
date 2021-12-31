@@ -10,11 +10,19 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(PCL REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Eigen REQUIRED)
+find_package(OpenMP)
+
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
 
 catkin_package(
   INCLUDE_DIRS
         src
-#  LIBRARIES smros
+        include
+  LIBRARIES
+        ndt_omp
   CATKIN_DEPENDS
         rangenet_lib
 #  DEPENDS system_lib
@@ -24,11 +32,18 @@ message("${PCL_INCLUDE_DIRS}")
 include_directories(
 # include
     src
+    include
     ${catkin_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
     ${CUDA_INCLUDE_DIRS}
     ${Eigen_INCLUDE_DIRS}
 )
+
+add_library(ndt_omp
+        src/pclomp/voxel_grid_covariance_omp.cpp
+        src/pclomp/gicp_omp.cpp
+        src/pclomp/ndt_omp.cpp
+        )
 
 add_executable(smros
         src/core/main.cpp
@@ -54,4 +69,4 @@ add_executable(smros
         src/rv/XmlNode.cpp
         src/rv/yxml.c
         )
-target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp)

@@ -3,7 +3,7 @@
 //
 
 #include "Frame.h"
-#include <cmath>
+
 
 const float PI = acos(-1);
 
@@ -38,45 +38,77 @@ pcl::PointCloud<Surfel>& Frame::setPointCloud() {
     return pointcloud_;
 }
 
-bool Frame::generateMap(int timestamp) {
+bool Frame::generateSurfel(int timestamp) {
     int num_points = pointcloud_.size();
-    // transform pointcloud to vertex map and semantic map
+    // select points
     for(int i = 0; i < num_points; i++)
     {
         float x = pointcloud_.points[i].x;
         float y = pointcloud_.points[i].y;
         float z = pointcloud_.points[i].z;
-
+        // compute the distance to zero point
         float r_xyz = sqrt(x*x + y*y + z*z);
-
+        // error point
         if(r_xyz == 0)
         {
             pointcloud_.points[i].y = NAN;
             continue;
         }
-
+        // compute u, v coordination
         int u = (int)(0.5 * width_ * (1 - atan(y / x) / PI));
         int v = (int)((1 - abs(asin(z / r_xyz) * 180.0 / PI + abs(fov_down_)) / fov_) * height_);
 
-
-        if(u > width_ || v > height_)
+        bool insert = true;
+        if(maps_[u][v].index != -1 && maps_[u][v].radius < r_xyz)
         {
-            std::cout << i << std::endl;
-            std::cout << u << ", " << v << std::endl;
-            std::cout << abs(asin(z / r_xyz) * 180.0 / PI + abs(fov_down_)) << std::endl;
-            std::cout << fov_ << std::endl;
+            insert = false;
         }
-
-        maps_[u][v].vertex_map[0] = x;
-        maps_[u][v].vertex_map[1] = y;
-        maps_[u][v].vertex_map[2] = z;
-
-        maps_[u][v].semantic_map = labels_[i];
-
-        maps_[u][v].radius = r_xyz * r_xyz;
-        maps_[u][v].index = i;
-//        pointcloud_.points[i].x = NAN;
+        if(insert)
+        {
+            maps_[u][v].radius = r_xyz;
+            maps_[u][v].index = i;
+            maps_[u][v].vertex_map = pointcloud_.points[i].x;
+        }
+        pointcloud_.points[i].x = NAN;
     }
+    // transform pointcloud to vertex map and semantic map
+//    for(int i = 0; i < num_points; i++)
+//    {
+//        float x = pointcloud_.points[i].x;
+//        float y = pointcloud_.points[i].y;
+//        float z = pointcloud_.points[i].z;
+//
+//        float r_xyz = sqrt(x*x + y*y + z*z);
+//
+//        if(r_xyz == 0)
+//        {
+//            pointcloud_.points[i].y = NAN;
+//            continue;
+//        }
+//
+//        int u = (int)(0.5 * width_ * (1 - atan(y / x) / PI));
+//        int v = (int)((1 - abs(asin(z / r_xyz) * 180.0 / PI + abs(fov_down_)) / fov_) * height_);
+//
+//
+//        if(u > width_ || v > height_)
+//        {
+//            std::cout << i << std::endl;
+//            std::cout << u << ", " << v << std::endl;
+//            std::cout << abs(asin(z / r_xyz) * 180.0 / PI + abs(fov_down_)) << std::endl;
+//            std::cout << fov_ << std::endl;
+//        }
+//
+//        maps_[u][v].vertex_map[0] = x;
+//        maps_[u][v].vertex_map[1] = y;
+//        maps_[u][v].vertex_map[2] = z;
+//
+//        maps_[u][v].semantic_map = labels_[i];
+//
+//        maps_[u][v].radius = r_xyz * r_xyz;
+//        maps_[u][v].index = i;
+//        pointcloud_.points[i].x = NAN;
+//    }
+    std::vector<int> stay_point_index;
     // compute normal
     for(int u = 0; u < width_; u++)
     {
@@ -87,9 +119,11 @@ bool Frame::generateMap(int timestamp) {
             {
                 continue;
             }
+            // save the index
             int index = maps_[u][v].index;
-            int u_index = (u + 1) % width_, v_index = (v + 1) % height_;
+            stay_point_index.push_back(index);
             // find nearest point
+            int u_index = (u + 1) % width_, v_index = (v + 1) % height_;
             while(true)
             {
                 if (maps_[u_index][v].index != -1)
@@ -102,19 +136,21 @@ bool Frame::generateMap(int timestamp) {
                     break;
                 v_index = (v_index + 1) % height_;
             }
-
-            Eigen::Vector3d u1 = maps_[u_index][v].vertex_map;
-            Eigen::Vector3d v1 = maps_[u][v_index].vertex_map;
-
-            maps_[u][v].normal_map = (u1 - maps_[u][v].vertex_map).cross(v1 - maps_[u][v].vertex_map);
-
+            // get the point
+            int u_point_index = maps_[u_index][v].index;
+            int v_point_index = maps_[u][v_index].index;
+            Eigen::Vector3d u1 (pointcloud_[u_point_index].x, pointcloud_[u_point_index].y, pointcloud_[u_point_index].z);
+            Eigen::Vector3d v1 (pointcloud_[v_point_index].x, pointcloud_[v_point_index].y, pointcloud_[v_point_index].z);;
+            Eigen::Vector3d point_xyz (pointcloud_[index].x, pointcloud_[index].y, pointcloud_[index].z);;
+            // compute normal
+            maps_[u][v].normal_map = (u1 - point_xyz).cross(v1 - point_xyz);
+            maps_[u][v].normal_map.normalize();
             // compute radius
             float molecular = sqrt(2.0) * maps_[u][v].radius * p_;
-            double dis = -1.0 * maps_[u][v].vertex_map.dot(maps_[u][v].normal_map) / maps_[u][v].radius;
+            double dis = -1.0 * point_xyz.dot(maps_[u][v].normal_map) / maps_[u][v].radius;
             float denominator = std::min(1.0, std::max(dis, 0.5));
-
             // set surfel
-            pointcloud_.points[index].x = maps_[u][v].vertex_map[0];
+            pointcloud_.points[index].x = maps_[u][v].vertex_map;
             pointcloud_.points[index].radius = molecular / denominator;
             pointcloud_.points[index].nx = maps_[u][v].normal_map[0];
             pointcloud_.points[index].ny = maps_[u][v].normal_map[1];

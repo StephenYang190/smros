@@ -14,6 +14,14 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/cloud_viewer.h>
+#include <pcl/filters/approximate_voxel_grid.h>
+#include <pcl/registration/ndt.h>
+#include <iostream>
+#include <pcl/registration/icp.h>
+#include <pclomp/ndt_omp.h>
+#include <pclomp/ndt_omp_impl.hpp>
+#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
+
 
 class SumaSLAM {
 private:
@@ -27,6 +35,7 @@ private:
     float initial_confidence_;
     ros::Publisher pub1, pub2, pub3;
     ros::Publisher pub;
+    ifstream inposes;
 
 public:
     SumaSLAM(const std::string& parameter_path = "");
@@ -40,6 +49,7 @@ public:
     bool mapUpdate();
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
     bool readFromFile(std::string dir_path);
+    bool readPose(int timestamp);
 };
 
 

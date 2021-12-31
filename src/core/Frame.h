@@ -12,11 +12,13 @@
 #include <Eigen/Dense>
 #include "surfel.h"
 #include <pcl/filters/filter.h>
+#include <cmath>
+#include <pcl/filters/impl/filter.hpp>
 
 
 namespace frm{
     struct map{
-        Eigen::Vector3d vertex_map;
+        float vertex_map;
         Eigen::Vector3d normal_map;
         int index;
         float semantic_map;
@@ -39,12 +41,13 @@ public:
     Frame(rv::ParameterList parameter_list, float init_confidence);
     ~Frame();
     pcl::PointCloud<Surfel>& setPointCloud();
-    bool generateMap(int timestamp);
+    bool generateSurfel(int timestamp);
     std::vector<int> & setLabels() {return labels_;}
     std::vector<float> & setLabelProbability() {return label_probability_;}
     const pcl::PointCloud<Surfel>& getPointClouds() {return pointcloud_;}
     pcl::PointCloud<Surfel>::Ptr getPointCloudsPtr() {return pointcloud_.makeShared();}
     const std::vector<std::vector<frm::map>> & getMaps() const {return maps_;};
+    int getPointNum() {return pointcloud_.size();}
     bool clearIndexMap();
 };
 
