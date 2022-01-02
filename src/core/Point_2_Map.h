@@ -17,38 +17,38 @@
 
 
 namespace frm{
-    struct map{
-        float vertex_map;
-        Eigen::Vector3d normal_map;
+    struct mapping_inddex{
+        float point_x;
         int index;
-        float semantic_map;
         float radius;
     };
 }
 
-class Frame {
+class Point_2_Map {
 private:
     int height_, width_;
     float fov_up_, fov_down_, fov_;
     pcl::PointCloud<Surfel> pointcloud_;
-    std::vector<std::vector<frm::map>> maps_;
-    std::vector<int> labels_;
-    std::vector<float> label_probability_;
+    std::vector<std::vector<frm::mapping_inddex>> maps_;
     float initial_confidence_;
     float p_;
 
+protected:
+    int computeMappingIndex();
+    bool removeNanPoint();
 public:
-    Frame(rv::ParameterList parameter_list, float init_confidence);
-    ~Frame();
+    Point_2_Map(rv::ParameterList parameter_list, float init_confidence);
+    ~Point_2_Map();
     pcl::PointCloud<Surfel>& setPointCloud();
     bool generateSurfel(int timestamp);
-    std::vector<int> & setLabels() {return labels_;}
-    std::vector<float> & setLabelProbability() {return label_probability_;}
     const pcl::PointCloud<Surfel>& getPointClouds() {return pointcloud_;}
     pcl::PointCloud<Surfel>::Ptr getPointCloudsPtr() {return pointcloud_.makeShared();}
-    const std::vector<std::vector<frm::map>> & getMaps() const {return maps_;};
-    int getPointNum() {return pointcloud_.size();}
+    const std::vector<std::vector<frm::mapping_inddex>> & getMaps() const {return maps_;};
+    int getHeight() {return height_;}
+    int getWidth() {return width_;}
     bool clearIndexMap();
+    bool generateMappingIndex();
+    int getIndex(int u, int v);
 };
 
 

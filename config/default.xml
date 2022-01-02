@@ -11,7 +11,7 @@
 <param name="max_distance" type="float">1</param>
 <param name="gamma" type="float">0.5</param>
 <param name="confidence_threshold" type="float">0.0</param>
-<param name="time_gap" type="integer">3</param>
+<param name="time_gap" type="integer">5</param>
 
 <param name="fov_up" type="float">3.0</param>
 <param name="fov_down" type="float">-25.0</param>

@@ -49,8 +49,9 @@ add_executable(smros
         src/core/main.cpp
         src/core/RangenetAPI.cpp
         src/core/SumaSLAM.cpp
-        src/core/Frame.cpp
+        src/core/Point_2_Map.cpp
         src/core/SurfelMap.cpp
+        src/core/Map_2_Point.cpp
 #        robovision
         src/rv/CompositeParameter.cpp
         src/rv/FileUtil.cpp

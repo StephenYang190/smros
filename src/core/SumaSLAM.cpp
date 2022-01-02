@@ -12,7 +12,7 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     net_ = std::make_shared<RangenetAPI>(params_);
     map_ = std::make_shared<SurfelMap>(params_);
 
-    current_frame_ = std::make_shared<Frame>(params_, map_->getInitConfidence());
+    current_frame_ = std::make_shared<Point_2_Map>(params_, map_->getInitConfidence());
 
     timestamp_ = 0;
 }
@@ -36,52 +36,50 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     std::clock_t start_time = std::clock();
     // frame parameter reference
     auto& point_clouds_surfel = current_frame_->setPointCloud();
-    std::vector<int>& labels = current_frame_->setLabels();
-    std::vector<float>& labels_prob = current_frame_->setLabelProbability();
     // set point
     pcl::copyPointCloud(point_clouds_xyzi, point_clouds_surfel);
     // generate surfel
     current_frame_->generateSurfel(timestamp_);
-    int num_points = current_frame_->getPointNum();
-    // store pointcloud in vector type
-    std::vector<float> points_xyzi_list(num_points * 4);
-    labels.resize(num_points);
-    labels_prob.resize(num_points);
-    // transform pointcloud to vector
-    for(int i = 0; i < num_points; i++)
-    {
-        int iter = i * 4;
-        points_xyzi_list[iter] = point_clouds_surfel.points[i].x;
-        points_xyzi_list[iter + 1] = point_clouds_surfel.points[i].y;
-        points_xyzi_list[iter + 2] = point_clouds_surfel.points[i].z;
-        points_xyzi_list[iter + 3] = point_clouds_surfel.points[i].data[3];
-    }
-    // get semantic result
-    std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
-    // match the label from label_map and color the point cloud
-    for(int i = 0; i < num_points; i++)
-    {
-        float prob = 0;
-        int index = 0;
-        for(int k = 0; k < 20; k++)
-        {
-            if(prob <= semantic_result[i][k])
-            {
-                prob = semantic_result[i][k];
-                index = k;
-            }
-        }
-        labels[i] = net_->getLabel(index);
-        labels_prob[i] = prob;
-        // get semantic point cloud
-        net_->setColorMap(labels[i]);
-        point_clouds_surfel.points[i].point_type = labels[i];
-        point_clouds_surfel.points[i].r = net_->getColorR() / 256.0;
-        point_clouds_surfel.points[i].g = net_->getColorG() / 256.0;
-        point_clouds_surfel.points[i].b = net_->getColorB() / 256.0;
-    }
-
-    std::clock_t end_time = std::clock();
+//    int num_points = current_frame_->getPointNum();
+//    // store pointcloud in vector type
+//    std::vector<float> points_xyzi_list(num_points * 4);
+//    labels.resize(num_points);
+//    labels_prob.resize(num_points);
+//    // transform pointcloud to vector
+//    for(int i = 0; i < num_points; i++)
+//    {
+//        int iter = i * 4;
+//        points_xyzi_list[iter] = point_clouds_surfel.points[i].x;
+//        points_xyzi_list[iter + 1] = point_clouds_surfel.points[i].y;
+//        points_xyzi_list[iter + 2] = point_clouds_surfel.points[i].z;
+//        points_xyzi_list[iter + 3] = point_clouds_surfel.points[i].data[3];
+//    }
+//    // get semantic result
+//    std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
+//    // match the label from label_map and color the point cloud
+//    for(int i = 0; i < num_points; i++)
+//    {
+//        float prob = 0;
+//        int index = 0;
+//        for(int k = 0; k < 20; k++)
+//        {
+//            if(prob <= semantic_result[i][k])
+//            {
+//                prob = semantic_result[i][k];
+//                index = k;
+//            }
+//        }
+//        labels[i] = net_->getLabel(index);
+//        labels_prob[i] = prob;
+//        // get semantic point cloud
+//        net_->setColorMap(labels[i]);
+//        point_clouds_surfel.points[i].point_type = labels[i];
+//        point_clouds_surfel.points[i].r = net_->getColorR() / 256.0;
+//        point_clouds_surfel.points[i].g = net_->getColorG() / 256.0;
+//        point_clouds_surfel.points[i].b = net_->getColorB() / 256.0;
+//    }
+//
+//    std::clock_t end_time = std::clock();
 //    std::cout << "preprocess points in suma slam. " << "using " << (float)(end_time - start_time) / CLOCKS_PER_SEC << std::endl;
 
     return true;
@@ -117,7 +115,7 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     odometry();
 //    readPose(timestamp_);
     std::cout << "Odometry using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
-    map_->updateMap(mapping_, timestamp_, current_frame_);
+    map_->updateMap(timestamp_, current_frame_);
     std::cout << "Update Map using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
 
     timestamp_++;
@@ -130,21 +128,18 @@ bool SumaSLAM::initialSystem(const pcl::PointCloud<pcl::PointXYZI> & point_cloud
     preprocess(point_clouds_xyzi);
 //    current_frame_->generateMap();
     map_->mapInitial(current_frame_->getPointClouds());
-    readPose(0);
     timestamp_++;
     return true;
 }
 
 bool SumaSLAM::odometry() {
-    std::clock_t t1 = std::clock();
     map_->generateActiveMap(timestamp_);
-    std::clock_t t2 = std::clock();
 
-    pcl::PointCloud<Surfel>::Ptr filtered_cloud (new pcl::PointCloud<Surfel>);
+    pcl::PointCloud<Surfel> filtered_cloud;
     pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
     approximate_voxel_filter.setLeafSize (0.1, 0.1, 0.1);
     approximate_voxel_filter.setInputCloud (current_frame_->getPointCloudsPtr());
-    approximate_voxel_filter.filter (*filtered_cloud);
+    approximate_voxel_filter.filter (filtered_cloud);
 
     pclomp::NormalDistributionsTransform<Surfel, Surfel> ndt;
 
@@ -158,19 +153,13 @@ bool SumaSLAM::odometry() {
     ndt.setMaximumIterations (35);
 
     // Setting point cloud to be aligned.
-    ndt.setInputSource (filtered_cloud);
+    ndt.setInputSource (filtered_cloud.makeShared());
     // Setting point cloud to be aligned to.
-    ndt.setInputTarget (map_->getActiveMapPtr());
+    ndt.setInputTarget (map_->getActiveMapPtr()->getPointCloudsPtr());
 
     // Calculating required rigid transform to align the input cloud to the target cloud.
     ndt.align (odometry_result_, map_->getPose(timestamp_ - 1));
 
-    std::clock_t t3 = std::clock();
-
-    std::cout << "render active map using: " << (float)(t2 - t1) / CLOCKS_PER_SEC <<
-              " have: " << current_frame_->getPointCloudsPtr()->size() << " as input and " <<
-              map_->getActiveMapPtr()->size() << std::endl;
-    std::cout << "ndt using: " << (float)(t3 - t2) / CLOCKS_PER_SEC << std::endl;
     std::cout << ndt.getFinalTransformation() << std::endl;
 
     map_->pushBackPose(ndt.getFinalTransformation());
@@ -237,28 +226,28 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
 
     for(auto file : out_filelsits)
     {
-        auto pointcloud(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::io::loadPCDFile<pcl::PointXYZI>(dir_path + file, *pointcloud);
-        step(*pointcloud);
+        pcl::PointCloud<pcl::PointXYZI> pointcloud;
+        pcl::io::loadPCDFile<pcl::PointXYZI>(dir_path + file, pointcloud);
+        step(pointcloud);
 
         if(timestamp_ % 10 == 9)
         {
-            auto global_points(new pcl::PointCloud<Surfel>);
-            generateMap(*global_points);
+            pcl::PointCloud<Surfel> global_points;
+            generateMap(global_points);
 
             pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
             approximate_voxel_filter.setLeafSize(0.1, 0.1, 0.1);
-            approximate_voxel_filter.setInputCloud(global_points->makeShared());
-            approximate_voxel_filter.filter(*global_points);
-            std::cout << "render map. have: " << global_points->size() << std::endl;
+            approximate_voxel_filter.setInputCloud(global_points.makeShared());
+            approximate_voxel_filter.filter(global_points);
+            std::cout << "render map. have: " << global_points.size() << std::endl;
             sensor_msgs::PointCloud2 msg;
-            pcl::toROSMsg(*global_points, msg);
+            pcl::toROSMsg(global_points, msg);
             msg.header.frame_id = "velodyne";
             pub.publish(msg);
 
             pcl::PointCloud<Surfel>::Ptr active_points;
             map_->generateActiveMap(timestamp_);
-            active_points = map_->getActiveMapPtr();
+            active_points = map_->getActiveMapPtr()->getPointCloudsPtr();
             sensor_msgs::PointCloud2 msg1;
             pcl::toROSMsg(*active_points, msg);
             msg.header.frame_id = "velodyne";

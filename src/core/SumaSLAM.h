@@ -26,7 +26,7 @@
 class SumaSLAM {
 private:
     std::shared_ptr<RangenetAPI> net_;
-    std::shared_ptr<Frame> current_frame_;
+    std::shared_ptr<Point_2_Map> current_frame_;
     rv::ParameterList params_;
     uint32_t timestamp_;
     pcl::PointCloud<Surfel> odometry_result_;
