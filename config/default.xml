@@ -13,7 +13,7 @@
 <param name="confidence_threshold" type="float">0.0</param>
 <param name="time_gap" type="integer">5</param>
 
-<param name="fov_up" type="float">3.0</param>
+<param name="fov_up" type="float">5.0</param>
 <param name="fov_down" type="float">-25.0</param>
 <!-- rangenet -->
 <param name="model_path" type="string">/home/tongda/workspace/semantic_map/catkin_ws/src/rangenet_lib/darknet53</param>

@@ -24,7 +24,7 @@
 class SurfelMap {
 private:
     std::vector<Eigen::Matrix4f> poses_;
-    std::vector<pcl::PointCloud<Surfel>> surfels_;
+    std::vector<std::shared_ptr<pcl::PointCloud<Surfel>>> surfels_;
     std::shared_ptr<Point_2_Map> active_map_;
     int width_, height_;
     float p_stable_, p_prior_, odds_p_prior_;
@@ -47,13 +47,14 @@ public:
     bool updateMap(const Point_2_Map & current_frame, int timestamp);
     bool updateMap(const pcl::PointCloud<Surfel> & align_point,
                    const pcl::CorrespondencesPtr mapping, int timestamp, std::shared_ptr<Point_2_Map> current_frame);
-    bool mapInitial(const pcl::PointCloud<Surfel> & pointcloud, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity());
+    bool mapInitial(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud, Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity());
     float updateConfidence(float confidence, float angle_2, float distance_2);
     bool generateMap(pcl::PointCloud<Surfel> & global_map);
     const std::shared_ptr<Point_2_Map> getActiveMapPtr() {return active_map_;}
     float getInitConfidence() {return initial_confidence_;}
     bool generateActiveMap(int timestamp);
     bool updateMap(int timestamp, std::shared_ptr<Point_2_Map> current_frame);
+    bool removeUnstableSurfel();
 };
 
 

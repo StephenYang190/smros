@@ -35,9 +35,9 @@ public:
     /** @brief      Get the color map from rangenet_lib **/
     std::map<uint32_t, semantic_color> getColorMap(){return net->getColorMap();}
 
-    float getColorR() {return float(r);}
-    float getColorB() {return float(b);}
-    float getColorG() {return float(g);}
+    float getColorR() {return r;}
+    float getColorB() {return b;}
+    float getColorG() {return g;}
 
     bool setColorMap(int pointcloud_type);
 

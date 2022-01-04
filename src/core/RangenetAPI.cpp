@@ -27,9 +27,10 @@ std::vector<std::vector<float>> RangenetAPI::infer(const std::vector<float>& sca
 bool RangenetAPI::setColorMap(int pointcloud_type)
 {
     semantic_color color = color_map_[pointcloud_type];
-    r = std::uint8_t (std::get<2>(color));
-    b = std::uint8_t (std::get<0>(color));
-    g = std::uint8_t (std::get<1>(color));
+    r = std::get<2>(color);
+    b = std::get<0>(color);
+    g = std::get<1>(color);
+    return true;
 }
 
 int RangenetAPI::getLabel(int index)

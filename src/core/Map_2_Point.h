@@ -25,12 +25,11 @@ protected:
     int computeMappingIndex();
 public:
     Map_2_Point(rv::ParameterList parameter_list, float init_confidence);
-    ~Map_2_Point();
+    ~Map_2_Point() {};
     pcl::PointCloud<Surfel>& setPointCloud();
     bool generateMappingIndex();
     int getUIndex(int index) {return u_mapping_[index];}
     int getVIndex(int index) {return v_mapping_[index];}
-    const pcl::PointCloud<Surfel>& getPointClouds() {return pointcloud_;}
     pcl::PointCloud<Surfel>::Ptr getPointCloudsPtr() {return pointcloud_.makeShared();}
 };
 

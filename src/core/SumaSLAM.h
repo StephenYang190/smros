@@ -42,11 +42,9 @@ public:
     void init();
     ~SumaSLAM() {}
     bool step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
-    bool render();
     bool preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     bool odometry();
     bool initialSystem(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
-    bool mapUpdate();
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
     bool readFromFile(std::string dir_path);
     bool readPose(int timestamp);
