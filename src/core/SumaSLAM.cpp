@@ -12,7 +12,9 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     net_ = std::make_shared<RangenetAPI>(params_);
     map_ = std::make_shared<SurfelMap>(params_);
 
-    current_frame_ = std::make_shared<Point_2_Map>(params_, map_->getInitConfidence());
+    current_frame_ = std::make_shared<VertexMap>(params_, map_->getInitConfidence());
+    loop_thred_ = params_["loop_thred"];
+    loop_times_ = 0;
 
     timestamp_ = 0;
 }
@@ -90,7 +92,7 @@ bool SumaSLAM::readPose(int timestamp)
     {
         inposes >> poes[i];
     }
-    Eigen::Matrix4f pose;
+    pose_type pose;
     pose << poes[0], poes[1], poes[2], poes[3],
             poes[4], poes[5], poes[6], poes[7],
             poes[8], poes[9], poes[10], poes[11],
@@ -115,6 +117,7 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     std::cout << "Odometry using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
     map_->updateMap(timestamp_, current_frame_);
     std::cout << "Update Map using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
+    loopDetection();
 
     timestamp_++;
     std::clock_t end_time = std::clock();
@@ -217,14 +220,22 @@ void sort_filelists(std::vector<std::string>& filists,std::string type)
 }
 
 bool SumaSLAM::readFromFile(std::string dir_path) {
+    std::string path = params_["pcdpath"];
     std::vector<std::string> out_filelsits;
-    read_filelists(dir_path, out_filelsits, "pcd");
+    read_filelists(path, out_filelsits, "pcd");
     sort_filelists(out_filelsits, "pcd");
 
+    int k = 0;
+    int skip = params_["skip_gap"];
     for(auto file : out_filelsits)
     {
+        if(k < skip)
+        {
+            k++;
+            continue;
+        }
         pcl::PointCloud<pcl::PointXYZI> pointcloud;
-        pcl::io::loadPCDFile<pcl::PointXYZI>(dir_path + file, pointcloud);
+        pcl::io::loadPCDFile<pcl::PointXYZI>(path + file, pointcloud);
         step(pointcloud);
 
         if(timestamp_ % 10 == 9)
@@ -264,5 +275,57 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
 
 
     return false;
+}
+
+bool SumaSLAM::backEnd() {
+
+    return false;
+}
+
+bool SumaSLAM::loopDetection() {
+    std::pair<int, int> pair_result = map_->loopDectection();
+    if(pair_result.first == -1)
+    {
+        return false;
+    }
+//    loop_times_++;
+//    if(loop_times_ < loop_thred_)
+//    {
+//        return false;
+//    }
+//    loop_times_ = 0;
+    int pre_index = pair_result.first;
+    int crt_index = pair_result.second;
+
+    std::shared_ptr<pcl::PointCloud<Surfel>> pre_point_clouds = map_->getPointCloudsInLocal(pre_index);
+    std::shared_ptr<pcl::PointCloud<Surfel>> crt_point_clouds = map_->getPointCloudsInLocal(crt_index);
+    // compute pose
+    pclomp::NormalDistributionsTransform<Surfel, Surfel> ndt;
+
+    ndt.setTransformationEpsilon (0.01);
+    // Setting maximum step size for More-Thuente line search.
+    ndt.setStepSize (0.1);
+    //Setting Resolution of NDT grid structure (VoxelGridCovariance).
+    ndt.setResolution (1.0);
+
+    // Setting max number of registration iterations.
+    ndt.setMaximumIterations (35);
+
+    // Setting point cloud to be aligned.
+    ndt.setInputSource (crt_point_clouds->makeShared());
+    // Setting point cloud to be aligned to.
+    ndt.setInputTarget (pre_point_clouds->makeShared());
+
+    // Calculating required rigid transform to align the input cloud to the target cloud.
+    pose_type initial_pose;
+    initial_pose << 1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1;
+    ndt.align (odometry_result_, initial_pose);
+    map_->setLoopPose(crt_index, pre_index, ndt.getFinalTransformation());
+    std::cout << "crt: " << crt_index << " pre: " << pre_index << std::endl;
+    std::cout << ndt.getFinalTransformation() << std::endl;
+    return true;
 }
 

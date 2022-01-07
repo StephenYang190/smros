@@ -2,12 +2,12 @@
 // Created by tongda on 2021/12/17.
 //
 
-#include "Point_2_Map.h"
+#include "VertexMap.h"
 
 
 const float PI = acos(-1);
 
-Point_2_Map::Point_2_Map(rv::ParameterList parameter_list, float init_confidence) :
+VertexMap::VertexMap(rv::ParameterList parameter_list, float init_confidence) :
         width_(parameter_list["width"]),
         height_(parameter_list["height"]),
         initial_confidence_(init_confidence)
@@ -15,7 +15,7 @@ Point_2_Map::Point_2_Map(rv::ParameterList parameter_list, float init_confidence
     fov_down_ = parameter_list["fov_down"];
     fov_up_ = parameter_list["fov_up"];
     fov_ = abs(fov_up_) + abs(fov_down_);
-    pointcloud_ = std::make_shared<pcl::PointCloud<Surfel>>();
+    pointclouds_ = std::make_shared<pcl::PointCloud<Surfel>>();
 
     maps_.resize(width_);
     for(int i = 0; i < width_; i++)
@@ -26,17 +26,17 @@ Point_2_Map::Point_2_Map(rv::ParameterList parameter_list, float init_confidence
     p_ = std::max(width_ / float(360.0), height_ / fov_);
 }
 
-Point_2_Map::~Point_2_Map() {
+VertexMap::~VertexMap() {
 
 }
 
-std::shared_ptr<pcl::PointCloud<Surfel>> Point_2_Map::setPointCloud() {
-    pointcloud_->clear();
+std::shared_ptr<pcl::PointCloud<Surfel>> VertexMap::setPointCloud() {
+    pointclouds_->clear();
     clearIndexMap();
-    return pointcloud_;
+    return pointclouds_;
 }
 
-bool Point_2_Map::generateSurfel(int timestamp) {
+bool VertexMap::generateSurfel(int timestamp) {
     computeMappingIndex();
 
     std::vector<int> stay_point_index;
@@ -70,9 +70,9 @@ bool Point_2_Map::generateSurfel(int timestamp) {
             // get the point
             int u_point_index = maps_[u_index][v].index;
             int v_point_index = maps_[u][v_index].index;
-            Eigen::Vector3d u1 (pointcloud_->points[u_point_index].x, pointcloud_->points[u_point_index].y, pointcloud_->points[u_point_index].z);
-            Eigen::Vector3d v1 (pointcloud_->points[v_point_index].x, pointcloud_->points[v_point_index].y, pointcloud_->points[v_point_index].z);;
-            Eigen::Vector3d point_xyz (pointcloud_->points[index].x, pointcloud_->points[index].y, pointcloud_->points[index].z);;
+            Eigen::Vector3d u1 (pointclouds_->points[u_point_index].x, pointclouds_->points[u_point_index].y, pointclouds_->points[u_point_index].z);
+            Eigen::Vector3d v1 (pointclouds_->points[v_point_index].x, pointclouds_->points[v_point_index].y, pointclouds_->points[v_point_index].z);;
+            Eigen::Vector3d point_xyz (pointclouds_->points[index].x, pointclouds_->points[index].y, pointclouds_->points[index].z);;
             // compute normal
             Eigen::Vector3d normal = (u1 - point_xyz).cross(v1 - point_xyz);
             normal.normalize();
@@ -81,13 +81,13 @@ bool Point_2_Map::generateSurfel(int timestamp) {
             double dis = -1.0 * point_xyz.dot(normal) / maps_[u][v].radius;
             float denominator = std::min(1.0, std::max(dis, 0.5));
             // set surfel
-            pointcloud_->points[index].radius = molecular / denominator;
-            pointcloud_->points[index].nx = normal[0];
-            pointcloud_->points[index].ny = normal[1];
-            pointcloud_->points[index].nz = normal[2];
-            pointcloud_->points[index].create_timestamp = timestamp;
-            pointcloud_->points[index].update_timestamp = timestamp;
-            pointcloud_->points[index].confidence = initial_confidence_;
+            pointclouds_->points[index].radius = molecular / denominator;
+            pointclouds_->points[index].nx = normal[0];
+            pointclouds_->points[index].ny = normal[1];
+            pointclouds_->points[index].nz = normal[2];
+            pointclouds_->points[index].create_timestamp = timestamp;
+            pointclouds_->points[index].update_timestamp = timestamp;
+            pointclouds_->points[index].confidence = initial_confidence_;
         }
     }
 
@@ -97,7 +97,7 @@ bool Point_2_Map::generateSurfel(int timestamp) {
     return true;
 }
 
-bool Point_2_Map::clearIndexMap() {
+bool VertexMap::clearIndexMap() {
     for(int u = 0; u < width_; u++)
     {
         for(int v = 0; v < height_; v++) {
@@ -107,21 +107,21 @@ bool Point_2_Map::clearIndexMap() {
     return false;
 }
 
-int Point_2_Map::computeMappingIndex() {
+int VertexMap::computeMappingIndex() {
     clearIndexMap();
-    int num_points = pointcloud_->size();
+    int num_points = pointclouds_->size();
     // select points
     for(int i = 0; i < num_points; i++)
     {
-        float x = pointcloud_->points[i].x;
-        float y = pointcloud_->points[i].y;
-        float z = pointcloud_->points[i].z;
+        float x = pointclouds_->points[i].x;
+        float y = pointclouds_->points[i].y;
+        float z = pointclouds_->points[i].z;
         // compute the distance to zero point
         float r_xyz = sqrt(x*x + y*y + z*z);
         // error point
         if(r_xyz < 1e-5)
         {
-            pointcloud_->points[i].y = NAN;
+            pointclouds_->points[i].y = NAN;
             continue;
         }
         // compute u, v coordination
@@ -140,19 +140,19 @@ int Point_2_Map::computeMappingIndex() {
         {
             maps_[u][v].radius = r_xyz;
             maps_[u][v].index = i;
-            maps_[u][v].point_x = pointcloud_->points[i].x;
+            maps_[u][v].point_x = pointclouds_->points[i].x;
         }
     }
 
     return num_points;
 }
 
-bool Point_2_Map::removeNanPoint() {
-    int num_points = pointcloud_->size();
+bool VertexMap::removeNanPoint() {
+    int num_points = pointclouds_->size();
     // select points
     for(int i = 0; i < num_points; i++)
     {
-        pointcloud_->points[i].x = NAN;
+        pointclouds_->points[i].x = NAN;
     }
     for(int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
@@ -160,29 +160,29 @@ bool Point_2_Map::removeNanPoint() {
             if (maps_[u][v].index < 0) {
                 continue;
             }
-            pointcloud_->points[maps_[u][v].index].x = maps_[u][v].point_x;
+            pointclouds_->points[maps_[u][v].index].x = maps_[u][v].point_x;
         }
     }
 
     // romove nan point
     std::vector<int> mapping;
-    pointcloud_->is_dense = false;
-    pcl::removeNaNFromPointCloud(*pointcloud_, *pointcloud_, mapping);
+    pointclouds_->is_dense = false;
+    pcl::removeNaNFromPointCloud(*pointclouds_, *pointclouds_, mapping);
 
     return false;
 }
 
-bool Point_2_Map::generateMappingIndex() {
+bool VertexMap::generateMappingIndex() {
     computeMappingIndex();
     return false;
 }
 
-int Point_2_Map::getIndex(int u, int v) {
+int VertexMap::getIndex(int u, int v) {
     return maps_[u][v].index;
 }
 
-void Point_2_Map::printIndex(){
-    int num_point = pointcloud_->size();
+void VertexMap::printIndex(){
+    int num_point = pointclouds_->size();
     std::cout << "Begin to find irregular point." << std::endl;
     for(int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {

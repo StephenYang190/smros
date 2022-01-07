@@ -11,6 +11,8 @@ find_package(PCL REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(OpenMP)
+find_package(Boost REQUIRED COMPONENTS filesystem system thread date_time timer chrono serialization)
+find_package(GTSAM REQUIRED)
 
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -19,24 +21,24 @@ endif()
 
 catkin_package(
   INCLUDE_DIRS
-        src
         include
   LIBRARIES
         ndt_omp
   CATKIN_DEPENDS
         rangenet_lib
-#  DEPENDS system_lib
+  DEPENDS
+        Boost
 )
 
 message("${PCL_INCLUDE_DIRS}")
 include_directories(
 # include
-    src
     include
     ${catkin_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
     ${CUDA_INCLUDE_DIRS}
     ${Eigen_INCLUDE_DIRS}
+    ${GTSAM_INCLUDE_DIRS}
 )
 
 add_library(ndt_omp
@@ -45,29 +47,33 @@ add_library(ndt_omp
         src/pclomp/ndt_omp.cpp
         )
 
+add_library(scancontext
+        include/Scancontext/Scancontext.cpp)
+
 add_executable(smros
         src/core/main.cpp
         src/core/RangenetAPI.cpp
         src/core/SumaSLAM.cpp
-        src/core/Point_2_Map.cpp
+        src/core/VertexMap.cpp
         src/core/SurfelMap.cpp
         src/core/Map_2_Point.cpp
+        src/core/BackEndOpt.cpp
 #        robovision
-        src/rv/CompositeParameter.cpp
-        src/rv/FileUtil.cpp
-        src/rv/Laserscan.cpp
-        src/rv/Math.cpp
-        src/rv/Parameter.cpp
-        src/rv/ParameterList.cpp
-        src/rv/ParameterListIterator.cpp
-        src/rv/PrimitiveParameters.cpp
-        src/rv/Random.cpp
-        src/rv/RangeParameter.cpp
-        src/rv/string_utils.cpp
-        src/rv/Stopwatch.cpp
-        src/rv/transform.cpp
-        src/rv/XmlDocument.cpp
-        src/rv/XmlNode.cpp
-        src/rv/yxml.c
+        include/rv/CompositeParameter.cpp
+        include/rv/FileUtil.cpp
+        include/rv/Laserscan.cpp
+        include/rv/Math.cpp
+        include/rv/Parameter.cpp
+        include/rv/ParameterList.cpp
+        include/rv/ParameterListIterator.cpp
+        include/rv/PrimitiveParameters.cpp
+        include/rv/Random.cpp
+        include/rv/RangeParameter.cpp
+        include/rv/string_utils.cpp
+        include/rv/Stopwatch.cpp
+        include/rv/transform.cpp
+        include/rv/XmlDocument.cpp
+        include/rv/XmlNode.cpp
+        include/rv/yxml.c
         )
-target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp)
+target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${G2O_LIBRARIES} ${Boost_LIBRARIES} gtsam scancontext)

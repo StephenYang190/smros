@@ -5,7 +5,7 @@
 #include "SumaSLAM.h"
 
 
-SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/catkin_ws/src/smros/config/default.xml");
+SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");
 
 // Callbcak function
 void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)

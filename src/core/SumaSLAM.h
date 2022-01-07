@@ -26,16 +26,19 @@
 class SumaSLAM {
 private:
     std::shared_ptr<RangenetAPI> net_;
-    std::shared_ptr<Point_2_Map> current_frame_;
+    std::shared_ptr<VertexMap> current_frame_;
     rv::ParameterList params_;
     uint32_t timestamp_;
     pcl::PointCloud<Surfel> odometry_result_;
     std::shared_ptr<SurfelMap> map_;
     pcl::CorrespondencesPtr mapping_;
     float initial_confidence_;
+    int loop_thred_;
+    int loop_times_;
     ros::Publisher pub1, pub2, pub3;
     ros::Publisher pub;
     ifstream inposes;
+
 
 public:
     SumaSLAM(const std::string& parameter_path = "");
@@ -48,6 +51,8 @@ public:
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
     bool readFromFile(std::string dir_path);
     bool readPose(int timestamp);
+    bool backEnd();
+    bool loopDetection();
 };
 
 
