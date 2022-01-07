@@ -1,6 +1,7 @@
-//
-// Created by tongda on 2021/12/16.
-//
+/* Surfel
+ * The definition of Surfel structure
+ * We define a custom pcl::point which called surfel
+ * */
 
 #ifndef SMROS_SURFEL_H
 #define SMROS_SURFEL_H
@@ -9,18 +10,6 @@
 #include <pcl/pcl_macros.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
-
-//struct Surfel {
-//    Eigen::Vector3d point; // points
-//    Eigen::Vector3d normal;
-//    float radius; // radius
-//    float confidence;
-//
-//    uint32_t create_timestamp;
-//    uint32_t update_timestamp;
-////    float color, weight, count;
-////    float r, g, b, w;
-//};
 
 struct Surfel
 {

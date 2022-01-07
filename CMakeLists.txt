@@ -56,8 +56,9 @@ add_executable(smros
         src/core/SumaSLAM.cpp
         src/core/VertexMap.cpp
         src/core/SurfelMap.cpp
-        src/core/Map_2_Point.cpp
+        src/core/PointIndex.cpp
         src/core/BackEndOpt.cpp
+        src/core/Timestamp.cpp
 #        robovision
         include/rv/CompositeParameter.cpp
         include/rv/FileUtil.cpp

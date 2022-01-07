@@ -6,25 +6,21 @@
 const float PI = acos(-1);
 
 
-SurfelMap::SurfelMap(rv::ParameterList parameter_list):
-        width_(parameter_list["width"]),
-        height_(parameter_list["height"]),
-        poses_(),
-        surfels_(0),
+SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp> time):
+        pose_list_(),
+        surfel_map_(0),
         p_stable_(parameter_list["p_stable"]),
         p_prior_(parameter_list["p_prior"]),
         sigma_angle_2_(parameter_list["sigma_angle"]),
         sigma_distance_2_(parameter_list["sigma_distance"]),
         distance_thred_(parameter_list["distance_thred"]),
         angle_thred_(parameter_list["angle_thred"]),
-        max_distance_(parameter_list["max_distance"]),
         gamma_(parameter_list["gamma"]),
         confidence_thred_(parameter_list["confidence_threshold"]),
         time_gap_(parameter_list["time_gap"]),
-        init_pose_(pose_type::Identity()),
         active_map_index_in_map_(time_gap_, -1),
         pose_graph_(),
-        scManager_()
+        timestamp_(time)
 {
     odds_p_prior_ = std::log(p_prior_ / (1 - p_prior_));
     initial_confidence_ = std::log(p_stable_ / (1 - p_stable_)) - odds_p_prior_;
@@ -54,27 +50,25 @@ SurfelMap::~SurfelMap() {
 }
 
 bool SurfelMap::pushBackPose(pose_type pose) {
-    poses_.push_back(pose);
-    int id = poses_.size() - 1;
+    pose_list_.push_back(pose);
+    int id = pose_list_.size() - 1;
     pose_graph_.setInitialValues(id, pose.cast<double>());
     if(id > 0)
     {
-        pose_type localpose = poses_[id - 1].inverse() * pose;
+        pose_type localpose = pose_list_[id - 1].inverse() * pose;
         pose_graph_.addEdge(id - 1, id, localpose.cast<double>(), info_);
     }
     return true;
 }
 
 pose_type SurfelMap::getPose(int timestamp) {
-    return poses_[timestamp];
+    return pose_list_[timestamp];
 }
 
-bool SurfelMap::mapInitial(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud, pose_type init_pose)
+bool SurfelMap::mapInitial(pose_type init_pose)
 {
     // push init pose
     pushBackPose(init_pose);
-    // create map
-    surfels_.push_back(pointcloud);
     return true;
 }
 
@@ -88,30 +82,40 @@ float SurfelMap::updateConfidence(float confidence, float angle_2, float distanc
 
 bool SurfelMap::generateMap(pcl::PointCloud<Surfel> & global_map)
 {
-    if (surfels_.empty())
+    if (surfel_map_.empty())
     {
         return false;
     }
 //    removeUnstableSurfel();
-    for(int i = 0; i < surfels_.size(); i++)
+    for(int i = 0; i < surfel_map_.size(); i++)
     {
         pcl::PointCloud<Surfel> transform_result;
-        pcl::transformPointCloud(*surfels_[i], transform_result, poses_[i]);
+        pcl::transformPointCloud(*surfel_map_[i], transform_result, pose_list_[i]);
         global_map += transform_result;
     }
 
     return true;
 }
 
-bool SurfelMap::updateMap(int timestamp,
-                     std::shared_ptr<VertexMap> current_frame) {
-//    std::clock_t start_time = std::clock();
+bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame) {
+    int now_time = timestamp_->getCurrentime();
     // create a new timestamp surfel
     std::shared_ptr<pcl::PointCloud<Surfel>> new_time_clouds = std::make_shared<pcl::PointCloud<Surfel>>();
-    surfels_.push_back(new_time_clouds);
+    surfel_map_.push_back(new_time_clouds);
+    // if timestamp = 0, only insert point
+    if(now_time == 0)
+    {
+        std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
+        int num_point = origin_point->size();
+        for(int i = 0; i < num_point; i++)
+        {
+            surfel_map_[now_time]->push_back(origin_point->points[i]);
+        }
+        return true;
+    }
     // transoform input local coordinate to world coordinate
-    std::shared_ptr<Map_2_Point> transform_result = std::make_shared<Map_2_Point>(param_, initial_confidence_);
-    pcl::transformPointCloud(*current_frame->getPointCloudsPtr(), transform_result->setPointCloud(), poses_[timestamp]);
+    std::shared_ptr<PointIndex> transform_result = std::make_shared<PointIndex>(param_);
+    pcl::transformPointCloud(*current_frame->getPointCloudsPtr(), transform_result->setPointCloud(), pose_list_[now_time]);
     // generate mapping index
     transform_result->generateMappingIndex();
     active_map_->generateMappingIndex();
@@ -128,13 +132,13 @@ bool SurfelMap::updateMap(int timestamp,
 //        int v = transform_result->getVIndex(i);
 //        if(u < 0 || v < 0 || u >= width_ || v >= height_)
 //        {
-//            surfels_[timestamp]->push_back(origin_point->points[i]);
+//            surfel_map_[timestamp]->push_back(origin_point->points[i]);
 //            continue;
 //        }
 //        int index = active_map_->getIndex(u, v);
 //        if(index == -1)
 //        {
-//            surfels_[timestamp]->push_back(origin_point->points[i]);
+//            surfel_map_[timestamp]->push_back(origin_point->points[i]);
 //            continue;
 //        }
 //        else
@@ -159,7 +163,7 @@ bool SurfelMap::updateMap(int timestamp,
 //                match_point_time++;
 //            }
 //            match_point_time = timestamp - match_point_time - 1;
-//            float orgin_confidence = surfels_[match_point_time]->points[index].confidence;
+//            float orgin_confidence = surfel_map_[match_point_time]->points[index].confidence;
 //            // compute angle and distance error
 //            float angle_cos = ns.dot(nsp) / (ns.norm() * nsp.norm());
 //            float angle_2 = acos(angle_cos);
@@ -167,30 +171,30 @@ bool SurfelMap::updateMap(int timestamp,
 //            float dis_2 = (vs - vsp).squaredNorm();
 //            float update_confidence = updateConfidence(orgin_confidence, angle_2, dis_2);
 //            // update confidence
-//            surfels_[match_point_time]->points[index].confidence = update_confidence;
+//            surfel_map_[match_point_time]->points[index].confidence = update_confidence;
 //            if(metric1 < distance_thred_ && metric2 < angle_thred_ && rs < rsp)
 //            {
 //                // transform point to local coordinate
-//                Eigen::Isometry3f local_pose(poses_[match_point_time]);
+//                Eigen::Isometry3f local_pose(pose_list_[match_point_time]);
 //                Eigen::Vector3f origin_xyz({transform_point->points[i].x, transform_point->points[i].y, transform_point->points[i].z});
 //                Eigen::Vector3f transform_xyz = local_pose.inverse() * origin_xyz;
-//                surfels_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.x() +
-//                        gamma_ * surfels_[match_point_time]->points[index].x;
-//                surfels_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.y() +
-//                                                             gamma_ * surfels_[match_point_time]->points[index].y;
-//                surfels_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.z() +
-//                                                             gamma_ * surfels_[match_point_time]->points[index].z;
-//                surfels_[match_point_time]->points[index].nx = (1 - gamma_) * origin_point->points[i].nx +
-//                                                             gamma_ * surfels_[match_point_time]->points[index].nx;
-//                surfels_[match_point_time]->points[index].ny = (1 - gamma_) * origin_point->points[i].ny +
-//                                                              gamma_ * surfels_[match_point_time]->points[index].ny;
-//                surfels_[match_point_time]->points[index].nz = (1 - gamma_) * origin_point->points[i].nz +
-//                                                              gamma_ * surfels_[match_point_time]->points[index].nz;
-//                surfels_[match_point_time]->points[index].radius = origin_point->points[i].radius;
+//                surfel_map_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.x() +
+//                        gamma_ * surfel_map_[match_point_time]->points[index].x;
+//                surfel_map_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.y() +
+//                                                             gamma_ * surfel_map_[match_point_time]->points[index].y;
+//                surfel_map_[match_point_time]->points[index].x = (1 - gamma_) * transform_xyz.z() +
+//                                                             gamma_ * surfel_map_[match_point_time]->points[index].z;
+//                surfel_map_[match_point_time]->points[index].nx = (1 - gamma_) * origin_point->points[i].nx +
+//                                                             gamma_ * surfel_map_[match_point_time]->points[index].nx;
+//                surfel_map_[match_point_time]->points[index].ny = (1 - gamma_) * origin_point->points[i].ny +
+//                                                              gamma_ * surfel_map_[match_point_time]->points[index].ny;
+//                surfel_map_[match_point_time]->points[index].nz = (1 - gamma_) * origin_point->points[i].nz +
+//                                                              gamma_ * surfel_map_[match_point_time]->points[index].nz;
+//                surfel_map_[match_point_time]->points[index].radius = origin_point->points[i].radius;
 //            }
 //            else
 //            {
-//                surfels_[timestamp]->push_back(origin_point->points[i]);
+//                surfel_map_[timestamp]->push_back(origin_point->points[i]);
 //            }
 //        }
 //    }
@@ -201,26 +205,26 @@ bool SurfelMap::updateMap(int timestamp,
         {
             continue;
         }
-        surfels_[timestamp]->push_back(origin_point->points[i]);
+        surfel_map_[now_time]->push_back(origin_point->points[i]);
     }
-//    pose_graph_.optimize(30);
     return true;
 }
 
-bool SurfelMap::generateActiveMap(int timestamp)
+bool SurfelMap::generateActiveMap()
 {
-    std::shared_ptr<pcl::PointCloud<Surfel>> point_in_active_map = active_map_->setPointCloud();
+    int now_time = timestamp_->getCurrentime();
+    std::shared_ptr<pcl::PointCloud<Surfel>> point_in_active_map = active_map_->getPointCloudsPtr();
+    point_in_active_map->clear();
 
-    if (surfels_.size() == 0)
+    if (surfel_map_.empty())
     {
         return false;
     }
-    pose_type pose = pose_type::Identity();
     // generate map
-    for(int i = timestamp - 1, k = 0; i > timestamp - time_gap_ && i > -1; i--, k++)
+    for(int i = now_time - 1, k = 0; i > now_time - time_gap_ && i > -1; i--, k++)
     {
         pcl::PointCloud<Surfel> transform_result;
-        pcl::transformPointCloud(*surfels_[i], transform_result, poses_[i]);
+        pcl::transformPointCloud(*surfel_map_[i], transform_result, pose_list_[i]);
         *point_in_active_map += transform_result;
         active_map_index_in_map_[k] = transform_result.size();
     }
@@ -228,10 +232,10 @@ bool SurfelMap::generateActiveMap(int timestamp)
 }
 
 bool SurfelMap::removeUnstableSurfel() {
-    for(int i = 0; i < surfels_.size(); i++)
+    for(int i = 0; i < surfel_map_.size(); i++)
     {
-        int num_points = surfels_[i]->size();
-        std::shared_ptr<pcl::PointCloud<Surfel>> point_clouds = surfels_[i];
+        int num_points = surfel_map_[i]->size();
+        std::shared_ptr<pcl::PointCloud<Surfel>> point_clouds = surfel_map_[i];
         for(int i_2 = 0; i_2 < num_points; i_2++)
         {
             if(point_clouds->points[i_2].confidence < confidence_thred_)
@@ -245,32 +249,19 @@ bool SurfelMap::removeUnstableSurfel() {
     return false;
 }
 
-std::pair<int, int> SurfelMap::loopDectection() {
-    int timestamp = surfels_.size() - 1;
-    scManager_.makeAndSaveScancontextAndKeys(*surfels_[timestamp]);
-    auto pair_result = scManager_.detectLoopClosureID();
-    int SCclosestHistoryFrameID = pair_result.first;
-    if( SCclosestHistoryFrameID != -1 ) {
-        const int prev_node_idx = SCclosestHistoryFrameID;
-        const int curr_node_idx = timestamp;
-        return std::pair<int, int>(prev_node_idx, curr_node_idx);
-    }
-    return std::pair<int, int>(-1, -1);
-}
-
 std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInLocal(int timestamp)
 {
-    return surfels_[timestamp];
+    return surfel_map_[timestamp];
 }
 
 std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInGlobal(int timestamp)
 {
     std::shared_ptr<pcl::PointCloud<Surfel>> transform_result = std::make_shared<pcl::PointCloud<Surfel>>();
-    pcl::transformPointCloud(*surfels_[timestamp], *transform_result, poses_[timestamp]);
+    pcl::transformPointCloud(*surfel_map_[timestamp], *transform_result, pose_list_[timestamp]);
     return transform_result;
 }
 
-bool SurfelMap::setLoopPose(int from, int to, pose_type pose) {
+bool SurfelMap::setLoopsureEdge(int from, int to, pose_type pose) {
     pose_graph_.addEdge(from, to, pose.cast<double>(), info_);
     loop_times_++;
     if(loop_times_ < loop_thred_)
@@ -279,6 +270,6 @@ bool SurfelMap::setLoopPose(int from, int to, pose_type pose) {
     }
     loop_times_ = 0;
     pose_graph_.optimize(100);
-    pose_graph_.updatePoses(poses_);
+    pose_graph_.updatePoses(pose_list_);
     return true;
 }

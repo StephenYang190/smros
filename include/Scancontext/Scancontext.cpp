@@ -33,6 +33,8 @@ float xy2theta( const float & _x, const float & _y )
 
     if ( _x >= 0 & _y < 0)
         return 360 - ( (180/M_PI) * atan((-_y) / _x) );
+
+    return 0.0f;
 } // xy2theta
 
 

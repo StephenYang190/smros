@@ -30,13 +30,14 @@ VertexMap::~VertexMap() {
 
 }
 
-std::shared_ptr<pcl::PointCloud<Surfel>> VertexMap::setPointCloud() {
+bool VertexMap::setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds) {
     pointclouds_->clear();
     clearIndexMap();
-    return pointclouds_;
+    pcl::copyPointCloud(*input_point_clouds, *pointclouds_);
+    return true;
 }
 
-bool VertexMap::generateSurfel(int timestamp) {
+bool VertexMap::points2Surfel(int timestamp) {
     computeMappingIndex();
 
     std::vector<int> stay_point_index;
@@ -107,31 +108,41 @@ bool VertexMap::clearIndexMap() {
     return false;
 }
 
-int VertexMap::computeMappingIndex() {
+bool VertexMap::computeMappingIndex() {
+    // set index map to -1
     clearIndexMap();
     int num_points = pointclouds_->size();
-    // select points
+    // compute the mapping from point to map
+    float x, y, z, r_xyz;
+    float yaw_angle, pitch_angle;
+    int u, v;
     for(int i = 0; i < num_points; i++)
     {
-        float x = pointclouds_->points[i].x;
-        float y = pointclouds_->points[i].y;
-        float z = pointclouds_->points[i].z;
+        x = pointclouds_->points[i].x;
+        y = pointclouds_->points[i].y;
+        z = pointclouds_->points[i].z;
         // compute the distance to zero point
-        float r_xyz = sqrt(x*x + y*y + z*z);
+        r_xyz = sqrt(x*x + y*y + z*z);
         // error point
         if(r_xyz < 1e-5)
         {
             pointclouds_->points[i].y = NAN;
             continue;
         }
-        // compute u, v coordination
-        int u = (int)(0.5 * width_ * (1 - atan(y / x) / PI));
-        int v = (int)((1 - abs(asin(z / r_xyz) * 180.0 / PI + abs(fov_down_)) / fov_) * height_);
-        if(u >= width_ || v >= height_ || u < 0 || v < 0){
-            continue;
-        }
+        // compute the yaw angle (max:360)
+        yaw_angle = atan(y / x) * 180.0 / PI;
+        // compute u coordination
+        u = (int)(0.5 * width_ * (1 - yaw_angle / 360));
+        // compute the pitch angle (max:360)
+        pitch_angle = asin(z / r_xyz) * 180.0 / PI;
+        // compute v coordination
+        v = (int)((1 - abs(pitch_angle + abs(fov_down_)) / fov_) * height_);
+        // coordination can not out of range
+        u = std::max(std::min(u, width_ - 1), 0);
+        v = std::max(std::min(v, height_ - 1), 0);
 
         bool insert = true;
+        // select the nearest point
         if(maps_[u][v].index != -1 && maps_[u][v].radius < r_xyz)
         {
             insert = false;
@@ -144,19 +155,20 @@ int VertexMap::computeMappingIndex() {
         }
     }
 
-    return num_points;
+    return true;
 }
 
 bool VertexMap::removeNanPoint() {
     int num_points = pointclouds_->size();
-    // select points
+    // set all point to nan
     for(int i = 0; i < num_points; i++)
     {
         pointclouds_->points[i].x = NAN;
     }
+    // recover the point in map
     for(int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
-            // no point fit in this way
+            // no point fit in this site
             if (maps_[u][v].index < 0) {
                 continue;
             }
@@ -169,11 +181,6 @@ bool VertexMap::removeNanPoint() {
     pointclouds_->is_dense = false;
     pcl::removeNaNFromPointCloud(*pointclouds_, *pointclouds_, mapping);
 
-    return false;
-}
-
-bool VertexMap::generateMappingIndex() {
-    computeMappingIndex();
     return false;
 }
 
@@ -194,4 +201,9 @@ void VertexMap::printIndex(){
         }
     }
     std::cout << "End to find irregular point." << std::endl;
+}
+
+bool VertexMap::generateMappingIndex() {
+    computeMappingIndex();
+    return true;
 }

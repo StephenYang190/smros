@@ -1,6 +1,7 @@
-//
-// Created by tongda on 2022/1/5.
-//
+/* BackEndOpt class
+ * Create by Tongda Yang
+ * This class is used to implement pose graph optimization with gtsam
+ * */
 
 #ifndef SRC_BACKENDOPT_H
 #define SRC_BACKENDOPT_H

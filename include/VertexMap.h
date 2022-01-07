@@ -1,23 +1,19 @@
-//
-// Created by tongda on 2021/12/17.
-//
-
-#ifndef SMROS_FRAME_H
-#define SMROS_FRAME_H
 /* VertexMap class
  * Create by Tongda Yang
  * This class is used to store and compute the radius, normal and the index on the vertex map
+ * We only store the points which on the vertex map
  * */
+
+#ifndef SMROS_FRAME_H
+#define SMROS_FRAME_H
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <rv/ParameterList.h>
 #include <memory>
-#include <Eigen/Dense>
-#include "surfel.h"
-#include <pcl/filters/filter.h>
 #include <cmath>
 #include <pcl/filters/impl/filter.hpp>
 
+#include "surfel.h"
 
 namespace frm{
     struct mapping_index{
@@ -28,7 +24,6 @@ namespace frm{
 }
 
 class VertexMap {
-// private value
 private:
     // height and width of vertex map
     int height_, width_;
@@ -40,28 +35,34 @@ private:
     std::vector<std::vector<frm::mapping_index>> maps_;
     // initial confidence
     float initial_confidence_;
-    //
+    // pixel size
     float p_;
-// protected function
+
 protected:
-    // coompute the matching between the vertex map and point clouds
-    int computeMappingIndex();
+    // compute the matching between the vertex map and point clouds
+    bool computeMappingIndex();
+    // remove Nan point and point not in the map from point clouds
     bool removeNanPoint();
+    // print index which is out of range
     void printIndex();
-// public function
+    // set index map to -1
+    bool clearIndexMap();
+
 public:
     VertexMap(rv::ParameterList parameter_list, float init_confidence);
     ~VertexMap();
-    std::shared_ptr<pcl::PointCloud<Surfel>> setPointCloud();
-    bool generateSurfel(int timestamp);
+    // set the point clouds xyz
+    bool setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds);
+    // transform point clouds to surfel based point clouds(compute the radius and other parameters)
+    bool points2Surfel(int timestamp);
+    // get point clouds ptr
     std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsPtr() {return pointclouds_;}
-    const std::vector<std::vector<frm::mapping_index>> & getMaps() const {return maps_;};
-    int getHeight() {return height_;}
-    int getWidth() {return width_;}
+    // get point number
     int getPointNum() {return pointclouds_->size();}
-    bool clearIndexMap();
-    bool generateMappingIndex();
+    // get point index on vertex map
     int getIndex(int u, int v);
+    // generate mapping index
+    bool generateMappingIndex();
 };
 
 
