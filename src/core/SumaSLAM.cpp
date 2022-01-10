@@ -12,6 +12,7 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     map_ = std::make_shared<SurfelMap>(params_, timestamp_);
 
     current_frame_ = std::make_shared<VertexMap>(params_, map_->getInitConfidence());
+    init();
 }
 
 void SumaSLAM::init()

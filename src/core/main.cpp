@@ -37,9 +37,7 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 int main(int argc, char** argv)
 {
     ros::init (argc, argv, "semantic_mapping");
-    ros::NodeHandle nh;
 
-    sumaslam.init();
     sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/");
 
 //    ros::Rate rate(2);
