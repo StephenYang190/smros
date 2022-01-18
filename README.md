@@ -14,6 +14,7 @@ Developed by Tongda Yang.
 - [x] complete factor graph optimization
 - [ ] semantic information usage
 - [ ] map update method
+- [ ] key frame selection method(*)
 
 ## System dependencies:
 

@@ -2,7 +2,7 @@
 // Created by tongda on 2021/12/16.
 //
 
-#include "SumaSLAM.h"
+#include "slam_system.h"
 
 
 SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");
@@ -37,7 +37,7 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 int main(int argc, char** argv)
 {
     ros::init (argc, argv, "semantic_mapping");
-
+    sumaslam.init();
     sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/");
 
 //    ros::Rate rate(2);
@@ -64,5 +64,5 @@ int main(int argc, char** argv)
 //        rate.sleep();
 //    }
 
-    return 1;
+    return 0;
 }

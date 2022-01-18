@@ -15,10 +15,11 @@
 #include <pclomp/ndt_omp.h>
 #include <pclomp/ndt_omp_impl.hpp>
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
+#include <map>
 #include <Scancontext/Scancontext.h>
 
 #include "RangenetAPI.hpp"
-#include "SurfelMap.h"
+#include "map_representation.h"
 
 
 class SumaSLAM {

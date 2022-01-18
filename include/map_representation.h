@@ -6,8 +6,8 @@
  * after pose graph optimization
  * */
 
-#ifndef SRC_SURFELMAP_H
-#define SRC_SURFELMAP_H
+#ifndef SRC_MAP_REPRESENTATION_H
+#define SRC_MAP_REPRESENTATION_H
 
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -17,10 +17,10 @@
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/impl/kdtree_flann.hpp>
 
-#include "VertexMap.h"
+#include "vertex_map_representation.h"
 #include "PointIndex.h"
-#include "BackEndOpt.h"
-#include "Timestamp.h"
+#include "backend_optimization.h"
+#include "time_stamp.h"
 
 // define the pose type as matrix4f
 using pose_type = Eigen::Matrix4f;
@@ -90,4 +90,4 @@ public:
 };
 
 
-#endif //SRC_SURFELMAP_H
+#endif //SRC_MAP_REPRESENTATION_H

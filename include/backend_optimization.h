@@ -3,8 +3,8 @@
  * This class is used to implement pose graph optimization with gtsam
  * */
 
-#ifndef SRC_BACKENDOPT_H
-#define SRC_BACKENDOPT_H
+#ifndef SRC_BACKEND_OPTIMIZATION_H
+#define SRC_BACKEND_OPTIMIZATION_H
 
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -30,4 +30,4 @@ public:
 };
 
 
-#endif //SRC_BACKENDOPT_H
+#endif //SRC_BACKEND_OPTIMIZATION_H

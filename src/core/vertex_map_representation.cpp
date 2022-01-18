@@ -2,7 +2,7 @@
 // Created by tongda on 2021/12/17.
 //
 
-#include "VertexMap.h"
+#include "vertex_map_representation.h"
 
 
 const float PI = acos(-1);
@@ -93,7 +93,7 @@ bool VertexMap::points2Surfel(int timestamp) {
     }
 
     // romove nan point
-    removeNanPoint();
+    removeOutSizePoint();
 
     return true;
 }
@@ -159,23 +159,6 @@ bool VertexMap::computeMappingIndex() {
 }
 
 bool VertexMap::removeNanPoint() {
-    int num_points = pointclouds_->size();
-    // set all point to nan
-    for(int i = 0; i < num_points; i++)
-    {
-        pointclouds_->points[i].x = NAN;
-    }
-    // recover the point in map
-    for(int u = 0; u < width_; u++) {
-        for (int v = 0; v < height_; v++) {
-            // no point fit in this site
-            if (maps_[u][v].index < 0) {
-                continue;
-            }
-            pointclouds_->points[maps_[u][v].index].x = maps_[u][v].point_x;
-        }
-    }
-
     // romove nan point
     std::vector<int> mapping;
     pointclouds_->is_dense = false;
@@ -205,5 +188,39 @@ void VertexMap::printIndex(){
 
 bool VertexMap::generateMappingIndex() {
     computeMappingIndex();
+    return true;
+}
+
+bool VertexMap::removeVehiclePoint() {
+    for(int i = 0; i < pointclouds_->size(); i++)
+    {
+        if(pointclouds_->points[i].point_type < 39)
+        {
+            pointclouds_->points[i].y = NAN;
+        }
+    }
+    removeNanPoint();
+    return false;
+}
+
+bool VertexMap::removeOutSizePoint()
+{
+    int num_points = pointclouds_->size();
+    // set all point to nan
+    for(int i = 0; i < num_points; i++)
+    {
+        pointclouds_->points[i].x = NAN;
+    }
+    // recover the point in map
+    for(int u = 0; u < width_; u++) {
+        for (int v = 0; v < height_; v++) {
+            // no point fit in this site
+            if (maps_[u][v].index < 0) {
+                continue;
+            }
+            pointclouds_->points[maps_[u][v].index].x = maps_[u][v].point_x;
+        }
+    }
+    removeNanPoint();
     return true;
 }

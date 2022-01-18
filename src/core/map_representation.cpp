@@ -2,7 +2,7 @@
 // Created by tongda on 2021/12/19.
 //
 
-#include "SurfelMap.h"
+#include "map_representation.h"
 const float PI = acos(-1);
 
 

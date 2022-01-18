@@ -1,4 +1,4 @@
-#include "SumaSLAM.h"
+#include "slam_system.h"
 
 SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     odometry_result_(),
@@ -12,7 +12,7 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     map_ = std::make_shared<SurfelMap>(params_, timestamp_);
 
     current_frame_ = std::make_shared<VertexMap>(params_, map_->getInitConfidence());
-    init();
+//    init();
 }
 
 void SumaSLAM::init()
@@ -33,8 +33,6 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
 {
     // set point clouds
     current_frame_->setPointCloud(point_clouds_xyzi.makeShared());
-    // generate surfel
-    current_frame_->points2Surfel(timestamp_->getCurrentime());
     // get point clouds in surfel base
     std::shared_ptr<pcl::PointCloud<Surfel>> point_clouds_surfel = current_frame_->getPointCloudsPtr();
 
@@ -52,6 +50,9 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     }
     // get semantic result
     std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
+
+//    std::unordered_map<int, int> label_nums;
+
     std::cout << "finish predict" << endl;
     // match the label from label_map and color the point cloud
     for(int i = 0; i < num_points; i++)
@@ -69,12 +70,19 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
         int label = net_->getLabel(index);
         // set label
         net_->setColorMap(label);
+//        label_nums[label]++;
         point_clouds_surfel->points[i].point_type = label;
         point_clouds_surfel->points[i].r = net_->getColorR() / 256.0f;
         point_clouds_surfel->points[i].g = net_->getColorG() / 256.0f;
         point_clouds_surfel->points[i].b = net_->getColorB() / 256.0f;
     }
-
+//    for(auto iter : label_nums)
+//    {
+//        std::cout << "type: " << iter.first << " number: " << iter.second << std::endl;
+//    }
+    // generate surfel
+    current_frame_->removeVehiclePoint();
+    current_frame_->points2Surfel(timestamp_->getCurrentime());
     return true;
 }
 
@@ -189,6 +197,7 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
     std::vector<std::string> out_filelsits;
     read_filelists(path, out_filelsits, "pcd");
     sort_filelists(out_filelsits, "pcd");
+    int render_gap = params_["render_gap"];
 
     int k = 0;
     int skip = params_["skip_gap"];
@@ -203,7 +212,7 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
         pcl::io::loadPCDFile<pcl::PointXYZI>(path + file, pointcloud);
         step(pointcloud);
 
-        if(timestamp_->getCurrentime() % 10 == 9)
+        if(timestamp_->getCurrentime() % render_gap == render_gap - 1)
         {
             pcl::PointCloud<Surfel> global_points;
             generateMap(global_points);
@@ -237,6 +246,8 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
             pub1.publish(msg);
         }
     }
+
+    std::cout << "finish." << std::endl;
 
 
     return false;

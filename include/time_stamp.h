@@ -3,8 +3,8 @@
  * This class is used to control whole slam time
  * */
 
-#ifndef SRC_TIMESTAMP_H
-#define SRC_TIMESTAMP_H
+#ifndef SRC_TIME_STAMP_H
+#define SRC_TIME_STAMP_H
 
 
 class Timestamp {
@@ -18,4 +18,4 @@ public:
 };
 
 
-#endif //SRC_TIMESTAMP_H
+#endif //SRC_TIME_STAMP_H

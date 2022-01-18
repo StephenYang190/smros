@@ -47,7 +47,8 @@ protected:
     void printIndex();
     // set index map to -1
     bool clearIndexMap();
-
+    // remove point not in the map from point clouds
+    bool removeOutSizePoint();
 public:
     VertexMap(rv::ParameterList parameter_list, float init_confidence);
     ~VertexMap();
@@ -63,6 +64,8 @@ public:
     int getIndex(int u, int v);
     // generate mapping index
     bool generateMappingIndex();
+    // remove vehicle type point from point clouds
+    bool removeVehiclePoint();
 };
 
 
