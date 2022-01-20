@@ -2,21 +2,15 @@
 // Created by tongda on 2021/12/17.
 //
 
-#include "vertex_map_representation.h"
+#include "vertexmap.h"
 
 
 const float PI = acos(-1);
 
 VertexMap::VertexMap(rv::ParameterList parameter_list, float init_confidence) :
-        width_(parameter_list["width"]),
-        height_(parameter_list["height"]),
+        VertexMapBase(parameter_list),
         initial_confidence_(init_confidence)
 {
-    fov_down_ = parameter_list["fov_down"];
-    fov_up_ = parameter_list["fov_up"];
-    fov_ = abs(fov_up_) + abs(fov_down_);
-    pointclouds_ = std::make_shared<pcl::PointCloud<Surfel>>();
-
     maps_.resize(width_);
     for(int i = 0; i < width_; i++)
     {
@@ -113,46 +107,20 @@ bool VertexMap::computeMappingIndex() {
     clearIndexMap();
     int num_points = pointclouds_->size();
     // compute the mapping from point to map
-    float x, y, z, r_xyz;
-    float yaw_angle, pitch_angle;
+    float r_xyz;
     int u, v;
     for(int i = 0; i < num_points; i++)
     {
-        x = pointclouds_->points[i].x;
-        y = pointclouds_->points[i].y;
-        z = pointclouds_->points[i].z;
-        // compute the distance to zero point
-        r_xyz = sqrt(x*x + y*y + z*z);
-        // error point
-        if(r_xyz < 1e-5)
-        {
-            pointclouds_->points[i].y = NAN;
-            continue;
-        }
-        // compute the yaw angle (max:360)
-        yaw_angle = atan(y / x) * 180.0 / PI;
-        // compute u coordination
-        u = (int)(0.5 * width_ * (1 - yaw_angle / 360));
-        // compute the pitch angle (max:360)
-        pitch_angle = asin(z / r_xyz) * 180.0 / PI;
-        // compute v coordination
-        v = (int)((1 - abs(pitch_angle + abs(fov_down_)) / fov_) * height_);
-        // coordination can not out of range
-        u = std::max(std::min(u, width_ - 1), 0);
-        v = std::max(std::min(v, height_ - 1), 0);
-
-        bool insert = true;
+        if(!computeUVIndex(i, u, v, r_xyz)) continue;
         // select the nearest point
         if(maps_[u][v].index != -1 && maps_[u][v].radius < r_xyz)
         {
-            insert = false;
+            continue;
         }
-        if(insert)
-        {
-            maps_[u][v].radius = r_xyz;
-            maps_[u][v].index = i;
-            maps_[u][v].point_x = pointclouds_->points[i].x;
-        }
+        maps_[u][v].radius = r_xyz;
+        maps_[u][v].index = i;
+        maps_[u][v].point_x = pointclouds_->points[i].x;
+
     }
 
     return true;
@@ -223,4 +191,66 @@ bool VertexMap::removeOutSizePoint()
     }
     removeNanPoint();
     return true;
+}
+
+VertexMapBase::VertexMapBase(rv::ParameterList parameter_list) :
+        width_(parameter_list["width"]),
+        height_(parameter_list["height"])
+{
+    fov_down_ = parameter_list["fov_down"];
+    fov_up_ = parameter_list["fov_up"];
+    fov_ = abs(fov_up_) + abs(fov_down_);
+    pointclouds_ = std::make_shared<pcl::PointCloud<Surfel>>();
+}
+
+bool VertexMapBase::computeUVIndex(int point_index, int& u, int& v, float& r_xyz) {
+    float x, y, z;
+    float yaw_angle, pitch_angle;
+    x = pointclouds_->points[point_index].x;
+    y = pointclouds_->points[point_index].y;
+    z = pointclouds_->points[point_index].z;
+    // compute the distance to zero point
+    r_xyz = sqrt(x*x + y*y + z*z);
+    // error point
+    if(r_xyz < 1e-5)
+    {
+        pointclouds_->points[point_index].y = NAN;
+        return false;
+    }
+    // compute the yaw angle (max:360)
+    yaw_angle = atan(y / x) * 180.0 / PI;
+    // compute u coordination
+    u = (int)(0.5 * width_ * (1 - yaw_angle / 360));
+    // compute the pitch angle (max:360)
+    pitch_angle = asin(z / r_xyz) * 180.0 / PI;
+    // compute v coordination
+    v = (int)((1 - abs(pitch_angle + abs(fov_down_)) / fov_) * height_);
+    // coordination can not out of range
+    u = std::max(std::min(u, width_ - 1), 0);
+    v = std::max(std::min(v, height_ - 1), 0);
+    return true;
+}
+
+PointIndex::PointIndex(rv::ParameterList parameter_list) :
+        VertexMapBase(parameter_list)
+{
+
+}
+
+bool PointIndex::generateMappingIndex() {
+    int num_points = pointclouds_->size();
+    u_list.resize(num_points);
+    v_list_.resize(num_points);
+    // compute index
+    float r_xyz;
+    int u, v;
+    for(int i = 0; i < num_points; i++)
+    {
+        if(!computeUVIndex(i, u, v, r_xyz)) continue;
+        // compute u, v coordination
+        u_list[i] = u;
+        v_list_[i] = v;
+    }
+
+    return false;
 }

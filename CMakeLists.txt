@@ -53,12 +53,12 @@ add_library(scancontext
 add_executable(smros
         src/core/main.cpp
         src/core/RangenetAPI.cpp
-        src/core/slam_system.cpp
-        src/core/vertex_map_representation.cpp
-        src/core/map_representation.cpp
-        src/core/PointIndex.cpp
-        src/core/backend_optimization.cpp
-        src/core/time_stamp.cpp
+        src/core/sumaslam.cpp
+        src/core/vertexmap.cpp
+        src/core/surfelmap.cpp
+#        src/core/PointIndex.cpp
+        src/core/backendopt.cpp
+        src/core/timestamp.cpp
 #        robovision
         include/rv/CompositeParameter.cpp
         include/rv/FileUtil.cpp

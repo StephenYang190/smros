@@ -15,7 +15,7 @@
 
 #include "surfel.h"
 
-namespace frm{
+namespace vtm{
     struct mapping_index{
         float point_x = 0.0;
         float radius = 0.0;
@@ -23,16 +23,26 @@ namespace frm{
     };
 }
 
-class VertexMap {
-private:
+class VertexMapBase{
+protected:
     // height and width of vertex map
     int height_, width_;
     // fov up and down for the range of interesting(ROI)
     float fov_up_, fov_down_, fov_;
     // point clouds
     std::shared_ptr<pcl::PointCloud<Surfel>> pointclouds_;
+public:
+    VertexMapBase(rv::ParameterList parameter_list);
+    virtual ~VertexMapBase(){}
+    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsPtr() {return pointclouds_;}
+    bool computeUVIndex(int point_index, int& u, int& v, float& r_xyz);
+};
+
+class VertexMap : public VertexMapBase
+{
+private:
     // vertex map, which store the index of point in point clouds
-    std::vector<std::vector<frm::mapping_index>> maps_;
+    std::vector<std::vector<vtm::mapping_index>> maps_;
     // initial confidence
     float initial_confidence_;
     // pixel size
@@ -56,8 +66,6 @@ public:
     bool setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds);
     // transform point clouds to surfel based point clouds(compute the radius and other parameters)
     bool points2Surfel(int timestamp);
-    // get point clouds ptr
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsPtr() {return pointclouds_;}
     // get point number
     int getPointNum() {return pointclouds_->size();}
     // get point index on vertex map
@@ -68,5 +76,25 @@ public:
     bool removeVehiclePoint();
 };
 
+class PointIndex : public VertexMapBase
+{
+private:
+    // u index list
+    std::vector<int> u_list;
+    // v index list
+    std::vector<int> v_list_;
+
+protected:
+
+public:
+    PointIndex(rv::ParameterList parameter_list);
+    ~PointIndex() {};
+    // find index of each point
+    bool generateMappingIndex();
+    // get u index
+    int getUIndex(int index) {return u_list[index];}
+    // get v index
+    int getVIndex(int index) {return v_list_[index];}
+};
 
 #endif //SMROS_FRAME_H

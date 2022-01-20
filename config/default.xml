@@ -6,22 +6,23 @@
 <param name="fov_up" type="float">5.0</param>
 <param name="fov_down" type="float">-23.0</param>
 
-
+<!-- SurfelMap parameters-->
+<param name="p_stable" type="float">0.6</param>
+<param name="p_prior" type="float">0.5</param>
 <param name="sigma_angle" type="float">1.0</param>
 <param name="sigma_distance" type="float">1.0</param>
-<param name="distance_thred" type="float">0.2</param>
 <param name="angle_thred" type="float">45.0</param>
-<param name="max_distance" type="float">1</param>
+<param name="distance_thred" type="float">1</param>
 <param name="gamma" type="float">0.5</param>
 <param name="confidence_threshold" type="float">0.0</param>
 <param name="time_gap" type="integer">5</param>
 
-
+<!-- SumaSLAM parameters-->
 <param name="inactive_time" type="integer">10</param>
-<param name="skip_gap" type="integer">0</param>
+<param name="skip_gap" type="integer">600</param>
 <param name="loop_thred" type="integer">5</param>
-<param name="p_stable" type="float">0.6</param>
-<param name="p_prior" type="float">0.5</param>
+<param name="max_distance_gap" type="float">0.2</param>
+<param name="max_angle_gap" type="float">0.01</param>
 <param name="pcdpath" type="string">/home/tongda/workspace/semantic_map/dataset/pcd_data/05/</param>
 <param name="render_gap" type="integer">100</param>
 <!-- rangenet -->

@@ -2,7 +2,7 @@
 // Created by tongda on 2021/12/16.
 //
 
-#include "slam_system.h"
+#include "sumaslam.h"
 
 
 SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");

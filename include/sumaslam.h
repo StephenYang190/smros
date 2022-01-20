@@ -19,7 +19,7 @@
 #include <Scancontext/Scancontext.h>
 
 #include "RangenetAPI.hpp"
-#include "map_representation.h"
+#include "surfelmap.h"
 
 
 class SumaSLAM {
@@ -38,6 +38,14 @@ private:
     std::shared_ptr<SurfelMap> map_;
     // scan context manager
     SCManager scManager_;
+    // distance threshold
+    float max_distance_;
+    // angle threshold
+    float max_angle_;
+    // update mode, true represent insert, false represent update
+    bool update_mode_;
+    // current pose
+    pose_type crt_pose_;
     // debug parameters
     ros::Publisher pub1, pub2, pub3;
     ros::Publisher pub;
@@ -47,7 +55,7 @@ protected:
     // update map
     bool mapUpdate();
     // loopsure detection
-    bool loopsureDetection();
+    bool loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // pre-process point clouds(transform to surfel based point clouds)
     bool preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // odometry(ndt omp)
@@ -65,7 +73,7 @@ public:
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
     bool readFromFile(std::string dir_path);
-    bool readPose(int timestamp);
+    bool readPose();
 };
 
 

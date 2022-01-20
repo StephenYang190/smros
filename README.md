@@ -12,9 +12,9 @@ Developed by Tongda Yang.
 - [x] complete map updating
 - [x] complete loopsure detection(scan context)
 - [x] complete factor graph optimization
-- [ ] semantic information usage
+- [x] key frame selection method
 - [ ] map update method
-- [ ] key frame selection method(*)
+- [ ] semantic information usage
 
 ## System dependencies:
 

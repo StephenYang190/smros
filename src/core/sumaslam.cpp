@@ -1,8 +1,8 @@
-#include "slam_system.h"
+#include "sumaslam.h"
 
 SumaSLAM::SumaSLAM(const std::string& parameter_path) :
-    odometry_result_(),
-    scManager_()
+        odometry_result_(),
+        scManager_()
 {
     parseXmlFile(parameter_path, params_);
     timestamp_ = std::make_shared<Timestamp>();
@@ -12,6 +12,11 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     map_ = std::make_shared<SurfelMap>(params_, timestamp_);
 
     current_frame_ = std::make_shared<VertexMap>(params_, map_->getInitConfidence());
+    max_distance_ = params_["max_distance_gap"];
+
+    max_angle_ = params_["max_angle_gap"];
+    update_mode_ = true;
+    crt_pose_ = pose_type::Identity();
 //    init();
 }
 
@@ -86,7 +91,7 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     return true;
 }
 
-bool SumaSLAM::readPose(int timestamp)
+bool SumaSLAM::readPose()
 {
     float poes[12];
     for(int i = 0; i < 12; i++)
@@ -116,11 +121,18 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     {
         std::cout << "Preprocess using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
         odometry();
-//    readPose(timestamp_);
+//    readPose();
         std::cout << "Odometry using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
         mapUpdate();
         std::cout << "Update Map using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
-        loopsureDetection();
+        if(update_mode_)
+        {
+            loopsureDetection(point_clouds_xyzi);
+        }
+        else
+        {
+            map_->resetLoopTimes();
+        }
     }
 
     timestamp_->nextTime();
@@ -131,12 +143,34 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
 
 bool SumaSLAM::odometry() {
     map_->generateActiveMap();
-    pose_type init_pose = map_->getPose(timestamp_->getCurrentime() - 1);
-    pose_type res_pose = computePose(current_frame_->getPointCloudsPtr(),
-                                     map_->getActiveMapPtr()->getPointCloudsPtr(),
-                                     init_pose);
+    pose_type init_pose = map_->getLastPose();
+    crt_pose_ = computePose(current_frame_->getPointCloudsPtr(),
+                            map_->getActiveMapPtr()->getPointCloudsPtr(),
+                            init_pose);
+    // key frame selection
+    // moving distance
+    float distance = 0;
+    for(int i = 0; i < 3; i++)
+    {
+        float dis = crt_pose_(i, 3) - init_pose(i, 3);
+        distance += dis * dis;
+    }
+    distance = sqrt(distance);
+    // rotation angle
+    pose_type localpose = init_pose.inverse() * crt_pose_;
+    Eigen::Quaternionf q(localpose.block<3, 3>(0 , 0));
+    float angle_change = q.x() + q.y() + q.z();
+    angle_change = abs(angle_change);
 
-    map_->pushBackPose(res_pose);
+    if(distance > max_distance_ || angle_change > max_angle_)
+    {
+        update_mode_ = true;
+    } else{
+        update_mode_ = false;
+    }
+    std::cout << "angle: " << angle_change << std::endl;
+    std::cout << "distance: " << distance << std::endl;
+    std::cout << "mode: " << update_mode_ << std::endl;
 
 //    sensor_msgs::PointCloud2 msg1, msg2, msg3;
 //    pcl::toROSMsg(*current_frame_->getPointCloudsPtr(), msg1);
@@ -253,14 +287,15 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
     return false;
 }
 
-bool SumaSLAM::loopsureDetection() {
+bool SumaSLAM::loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
+    scManager_.makeAndSaveScancontextAndKeys(*current_frame_->getPointCloudsPtr());
     auto pair_result = scManager_.detectLoopClosureID();
     int SCclosestHistoryFrameID = pair_result.first;
     if( SCclosestHistoryFrameID == -1 ) {
         return false;
     }
     int pre_index = SCclosestHistoryFrameID;
-    int crt_index = timestamp_->getCurrentime();
+    int crt_index = map_->getCurrentIndex();
 
     std::shared_ptr<pcl::PointCloud<Surfel>> pre_point_clouds = map_->getPointCloudsInLocal(pre_index);
     std::shared_ptr<pcl::PointCloud<Surfel>> crt_point_clouds = map_->getPointCloudsInLocal(crt_index);
@@ -275,12 +310,11 @@ bool SumaSLAM::loopsureDetection() {
 }
 
 bool SumaSLAM::mapUpdate() {
-    if(timestamp_->getCurrentime() == 0)
-    {
-        map_->mapInitial();
-    }
-    map_->updateMap(current_frame_);
-    scManager_.makeAndSaveScancontextAndKeys(*current_frame_->getPointCloudsPtr());
+//    if(timestamp_->getCurrentime() == 0)
+//    {
+//        map_->mapInitial();
+//    }
+    map_->updateMap(current_frame_, update_mode_, crt_pose_);
     return false;
 }
 

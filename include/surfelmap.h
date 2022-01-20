@@ -6,8 +6,8 @@
  * after pose graph optimization
  * */
 
-#ifndef SRC_MAP_REPRESENTATION_H
-#define SRC_MAP_REPRESENTATION_H
+#ifndef SRC_SURFELMAP_H
+#define SRC_SURFELMAP_H
 
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -17,13 +17,19 @@
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/impl/kdtree_flann.hpp>
 
-#include "vertex_map_representation.h"
-#include "PointIndex.h"
-#include "backend_optimization.h"
-#include "time_stamp.h"
+#include "vertexmap.h"
+#include "backendopt.h"
+#include "timestamp.h"
 
 // define the pose type as matrix4f
 using pose_type = Eigen::Matrix4f;
+namespace sfm{
+    struct loopsure_edge{
+        int from;
+        int to;
+        pose_type pose;
+    };
+}
 
 class SurfelMap {
 private:
@@ -54,6 +60,8 @@ private:
     int loop_thred_, loop_times_;
     // timestamp
     std::shared_ptr<Timestamp> timestamp_;
+    // store the loopsure limitation
+    std::vector<sfm::loopsure_edge> loop_edges_;
 
 protected:
     // update confidence
@@ -67,7 +75,7 @@ public:
     // add pose to pose list
     bool pushBackPose(pose_type pose);
     // get pose at timestamp
-    pose_type getPose(int timestamp);
+    pose_type getLastPose();
     // intial map and pose
     bool mapInitial(pose_type init_pose = pose_type::Identity());
     // generate global map
@@ -80,14 +88,20 @@ public:
     bool generateActiveMap();
     // update map
     bool updateMap(std::shared_ptr<VertexMap> current_frame);
+    bool updateMap(std::shared_ptr<VertexMap> current_frame, bool mode = false,
+                   pose_type crt_pose = pose_type::Identity());
     // get point clouds at timestamp in local coordination
     std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInLocal(int timestamp);
     // get point clouds at timestamp in global coordination
     std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInGlobal(int timestamp);
     // set loop edge in factor graph
     bool setLoopsureEdge(int from, int to, pose_type pose);
+    // get final point cloud index
+    int getCurrentIndex() {return surfel_map_.size() - 1;}
+    // reset loop times
+    bool resetLoopTimes();
 
 };
 
 
-#endif //SRC_MAP_REPRESENTATION_H
+#endif //SRC_SURFELMAP_H

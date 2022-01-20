@@ -2,7 +2,7 @@
 // Created by tongda on 2021/12/19.
 //
 
-#include "map_representation.h"
+#include "surfelmap.h"
 const float PI = acos(-1);
 
 
@@ -31,6 +31,7 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp
     param_ = parameter_list;
     loop_thred_ = param_["loop_thred"];
     loop_times_ = 0;
+    loop_edges_.resize(loop_thred_);
 
     auto& diag = info_.diagonal();
     // translational noise is smaller than rotational noise.
@@ -61,8 +62,8 @@ bool SurfelMap::pushBackPose(pose_type pose) {
     return true;
 }
 
-pose_type SurfelMap::getPose(int timestamp) {
-    return pose_list_[timestamp];
+pose_type SurfelMap::getLastPose() {
+    return pose_list_.back();
 }
 
 bool SurfelMap::mapInitial(pose_type init_pose)
@@ -113,16 +114,16 @@ bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame) {
         }
         return true;
     }
-    // transoform input local coordinate to world coordinate
     std::shared_ptr<PointIndex> transform_result = std::make_shared<PointIndex>(param_);
-    pcl::transformPointCloud(*current_frame->getPointCloudsPtr(), transform_result->setPointCloud(), pose_list_[now_time]);
+    // get point
+    std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
+    std::shared_ptr<pcl::PointCloud<Surfel>>  transform_point = transform_result->getPointCloudsPtr();
+    std::shared_ptr<pcl::PointCloud<Surfel>> active_map_point = active_map_->getPointCloudsPtr();
+    // transoform input local coordinate to world coordinate
+    pcl::transformPointCloud(*current_frame->getPointCloudsPtr(), *transform_point, pose_list_[now_time]);
     // generate mapping index
     transform_result->generateMappingIndex();
     active_map_->generateMappingIndex();
-    // get point
-    std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
-    pcl::PointCloud<Surfel>::Ptr transform_point = transform_result->getPointCloudsPtr();
-    std::shared_ptr<pcl::PointCloud<Surfel>> active_map_point = active_map_->getPointCloudsPtr();
     int num_point = origin_point->size();
     std::vector<bool> updated_point(num_point, false);
     // update map
@@ -172,7 +173,7 @@ bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame) {
 //            float update_confidence = updateConfidence(orgin_confidence, angle_2, dis_2);
 //            // update confidence
 //            surfel_map_[match_point_time]->points[index].confidence = update_confidence;
-//            if(metric1 < distance_thred_ && metric2 < angle_thred_ && rs < rsp)
+//            if(metric1 < max_distance && metric2 < angle_thred_ && rs < rsp)
 //            {
 //                // transform point to local coordinate
 //                Eigen::Isometry3f local_pose(pose_list_[match_point_time]);
@@ -210,9 +211,53 @@ bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame) {
     return true;
 }
 
-bool SurfelMap::generateActiveMap()
+bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame, bool mode, pose_type crt_pose)
 {
     int now_time = timestamp_->getCurrentime();
+    // if it is a key frame, we insert it directly
+    if(mode)
+    {
+        // create a new timestamp surfel
+        std::shared_ptr<pcl::PointCloud<Surfel>> new_time_clouds = std::make_shared<pcl::PointCloud<Surfel>>();
+        surfel_map_.push_back(new_time_clouds);
+        pushBackPose(crt_pose);
+        std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
+        int num_point = origin_point->size();
+        for(int i = 0; i < num_point; i++)
+        {
+            new_time_clouds->push_back(origin_point->points[i]);
+        }
+        return true;
+    }
+
+    std::shared_ptr<PointIndex> transform_result = std::make_shared<PointIndex>(param_);
+    // get point
+    std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
+    std::shared_ptr<pcl::PointCloud<Surfel>>  transform_point = transform_result->getPointCloudsPtr();
+    std::shared_ptr<pcl::PointCloud<Surfel>> active_map_point = active_map_->getPointCloudsPtr();
+    // transoform input local coordinate to world coordinate
+    pcl::transformPointCloud(*current_frame->getPointCloudsPtr(), *transform_point, pose_list_[now_time]);
+    // generate mapping index
+    transform_result->generateMappingIndex();
+    active_map_->generateMappingIndex();
+    int num_point = origin_point->size();
+    std::vector<bool> updated_point(num_point, false);
+    // update map
+
+
+//    for(int i = 0; i < num_point; i++)
+//    {
+//        if(updated_point[i])
+//        {
+//            continue;
+//        }
+//        surfel_map_[now_time]->push_back(origin_point->points[i]);
+//    }
+    return true;
+}
+bool SurfelMap::generateActiveMap()
+{
+    int total_frame = surfel_map_.size();
     std::shared_ptr<pcl::PointCloud<Surfel>> point_in_active_map = active_map_->getPointCloudsPtr();
     point_in_active_map->clear();
 
@@ -221,7 +266,7 @@ bool SurfelMap::generateActiveMap()
         return false;
     }
     // generate map
-    for(int i = now_time - 1, k = 0; i > now_time - time_gap_ && i > -1; i--, k++)
+    for(int i = total_frame - 1, k = 0; i > total_frame - time_gap_ && i > -1; i--, k++)
     {
         pcl::PointCloud<Surfel> transform_result;
         pcl::transformPointCloud(*surfel_map_[i], transform_result, pose_list_[i]);
@@ -262,14 +307,26 @@ std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInGlobal(int t
 }
 
 bool SurfelMap::setLoopsureEdge(int from, int to, pose_type pose) {
-    pose_graph_.addEdge(from, to, pose.cast<double>(), info_);
-    loop_times_++;
     if(loop_times_ < loop_thred_)
     {
+        loop_edges_[loop_times_].from = from;
+        loop_edges_[loop_times_].to = to;
+        loop_edges_[loop_times_].pose = pose;
+        loop_times_++;
         return false;
     }
+    for(int i = 0; i < loop_times_; i++)
+    {
+        pose_graph_.addEdge(loop_edges_[i].from, loop_edges_[i].to, loop_edges_[i].pose.cast<double>(), info_);
+    }
     loop_times_ = 0;
-    pose_graph_.optimize(100);
+    pose_graph_.optimize(30);
     pose_graph_.updatePoses(pose_list_);
+    return true;
+}
+
+bool SurfelMap::resetLoopTimes()
+{
+    loop_times_ = 0;
     return true;
 }
