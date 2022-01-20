@@ -315,13 +315,17 @@ bool SurfelMap::setLoopsureEdge(int from, int to, pose_type pose) {
         loop_times_++;
         return false;
     }
+    std::cout << "1 to" << std::endl;
     for(int i = 0; i < loop_times_; i++)
     {
         pose_graph_.addEdge(loop_edges_[i].from, loop_edges_[i].to, loop_edges_[i].pose.cast<double>(), info_);
     }
+    std::cout << "2 to" << std::endl;
     loop_times_ = 0;
     pose_graph_.optimize(30);
+    std::cout << "3 to" << std::endl;
     pose_graph_.updatePoses(pose_list_);
+    std::cout << "4 to" << std::endl;
     return true;
 }
 

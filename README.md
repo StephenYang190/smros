@@ -4,6 +4,8 @@ This repository contains the completeation of semantic mapping based on ros.
 
 Developed by Tongda Yang.
 
+![](https://github.com/StephenYang190/smros/picture/shortcut.png)
+
 ## Now statue:
 
 - [x] complete pre-processing
