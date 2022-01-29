@@ -17,6 +17,7 @@ Developed by Tongda Yang.
 - [x] key frame selection method
 - [ ] map update method
 - [ ] semantic information usage
+- [ ] submap
 
 ## System dependencies:
 
