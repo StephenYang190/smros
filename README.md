@@ -18,13 +18,14 @@ Developed by Tongda Yang.
 - [ ] map update method
 - [ ] semantic information usage
 - [ ] submap
+- [ ] problem ocurr in normal estimation and update
 
 ## System dependencies:
 
 ```
 catkin
 libEigen = 3.1
-gtsam = 4.1.1 (Please make using system eigen)
+gtsam = 4.1.1 (Please make sure you use system eigen)
 Tensorrt = 8.0
 CUDA drive = 11.2
 CUDA running time = 11.1
