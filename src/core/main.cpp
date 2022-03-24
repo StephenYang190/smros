@@ -4,9 +4,6 @@
 
 #include "sumaslam.h"
 
-
-SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");
-
 // Callbcak function
 void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 {
@@ -14,13 +11,13 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 //    ROS_INFO_STREAM("width: " << pointCloud2->width);
 //    ROS_INFO_STREAM("height: " << pointCloud2->height);
 
-    auto pointcloud_xyzi(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::fromROSMsg(*pointCloud2, *pointcloud_xyzi);
+//    auto pointcloud_xyzi(new pcl::PointCloud<pcl::PointXYZI>);
+//    pcl::fromROSMsg(*pointCloud2, *pointcloud_xyzi);
 
     // processing
 //    ROS_INFO_STREAM("Begin.");
 //    ROS_INFO_STREAM("Input Point numbers: " << pointcloud_xyzi->points.size());
-    sumaslam.step(*pointcloud_xyzi);
+//    sumaslam.step(*pointcloud_xyzi);
 
 //    auto pointcloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 //    sumaslam.generateMap(*pointcloud);
@@ -37,8 +34,13 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 int main(int argc, char** argv)
 {
     ros::init (argc, argv, "semantic_mapping");
+    SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");
     sumaslam.init();
-    sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/");
+    if(sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/"))
+    {
+        std::cout << "Map construction well." << std::endl;
+    }
+//    sumaslam.testLoopsure();
 
 //    ros::Rate rate(2);
 //    ros::AsyncSpinner spinner(1);

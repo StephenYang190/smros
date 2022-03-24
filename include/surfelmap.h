@@ -16,6 +16,7 @@
 #include <pcl/cloud_iterator.h>
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/impl/kdtree_flann.hpp>
+#include <fstream>
 
 #include "vertexmap.h"
 #include "backendopt.h"
@@ -24,10 +25,12 @@
 // define the pose type as matrix4f
 using pose_type = Eigen::Matrix4f;
 namespace sfm{
-    struct loopsure_edge{
+    class loopsure_edge{
+    public:
         int from;
         int to;
         pose_type pose;
+        loopsure_edge() : from(-1), to(-1), pose(Eigen::Matrix4f::Identity()){}
     };
 }
 
@@ -56,12 +59,14 @@ private:
     BackEndOpt pose_graph_;
     // information metrix
     Eigen::DiagonalMatrix<double, 6> info_;
-    // parameters used to control the time to optimization
-    int loop_thred_, loop_times_;
+    // parameter used to control the time to optimization
+    int loop_thred_;
+    // parameter used to mark loopsure
+    bool have_loop_;
     // timestamp
     std::shared_ptr<Timestamp> timestamp_;
-    // store the loopsure limitation
-    std::vector<sfm::loopsure_edge> loop_edges_;
+    // store the loopsure edge
+    sfm::loopsure_edge loop_edges_;
 
 protected:
     // update confidence
@@ -100,6 +105,8 @@ public:
     int getCurrentIndex() {return surfel_map_.size() - 1;}
     // reset loop times
     bool resetLoopTimes();
+    // sae pose to file
+    bool savePose2File();
 
 };
 

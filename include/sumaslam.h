@@ -10,6 +10,7 @@
 
 #include <ros/ros.h>
 #include <pcl/io/pcd_io.h>
+//#include <pcl/visualization/cloud_viewer.h>
 #include <pcl/filters/approximate_voxel_grid.h>
 #include <iostream>
 #include <pclomp/ndt_omp.h>
@@ -17,6 +18,7 @@
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <map>
 #include <Scancontext/Scancontext.h>
+#include <chrono>
 
 #include "RangenetAPI.hpp"
 #include "surfelmap.h"
@@ -64,16 +66,22 @@ protected:
     pose_type computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_points,
                           std::shared_ptr<pcl::PointCloud<Surfel>> target_points,
                           pose_type initial_pose);
+    // function to pose global map to ros node
+    void publicMap();
 public:
     SumaSLAM(const std::string& parameter_path = "");
     void init();
-    ~SumaSLAM() {}
+    ~SumaSLAM() {
+        inposes.close();
+    }
     // operate a step
     bool step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
     bool readFromFile(std::string dir_path);
     bool readPose();
+    // debug
+    void testLoopsure();
 };
 
 

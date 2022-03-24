@@ -20,7 +20,8 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp
         time_gap_(parameter_list["time_gap"]),
         active_map_index_in_map_(time_gap_, -1),
         pose_graph_(),
-        timestamp_(time)
+        timestamp_(time),
+        loop_edges_()
 {
     odds_p_prior_ = std::log(p_prior_ / (1 - p_prior_));
     initial_confidence_ = std::log(p_stable_ / (1 - p_stable_)) - odds_p_prior_;
@@ -30,8 +31,7 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp
     active_map_ = std::make_shared<VertexMap>(parameter_list, initial_confidence_);
     param_ = parameter_list;
     loop_thred_ = param_["loop_thred"];
-    loop_times_ = 0;
-    loop_edges_.resize(loop_thred_);
+    have_loop_ = false;
 
     auto& diag = info_.diagonal();
     // translational noise is smaller than rotational noise.
@@ -307,30 +307,56 @@ std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInGlobal(int t
 }
 
 bool SurfelMap::setLoopsureEdge(int from, int to, pose_type pose) {
-    if(loop_times_ < loop_thred_)
+    // valid last loopsure
+    if(have_loop_ && from - loop_edges_.from < loop_thred_)
     {
-        loop_edges_[loop_times_].from = from;
-        loop_edges_[loop_times_].to = to;
-        loop_edges_[loop_times_].pose = pose;
-        loop_times_++;
-        return false;
+        // optimise pose
+        std::cout << "1 to" << std::endl;
+        pose_graph_.addEdge(loop_edges_.from, loop_edges_.to, loop_edges_.pose.cast<double>(), info_);
+        std::cout << "2 to" << std::endl;
+        pose_graph_.optimize(30);
+        std::cout << "3 to" << std::endl;
+        pose_graph_.updatePoses(pose_list_);
+        std::cout << "4 to" << std::endl;
     }
-    std::cout << "1 to" << std::endl;
-    for(int i = 0; i < loop_times_; i++)
-    {
-        pose_graph_.addEdge(loop_edges_[i].from, loop_edges_[i].to, loop_edges_[i].pose.cast<double>(), info_);
-    }
-    std::cout << "2 to" << std::endl;
-    loop_times_ = 0;
-    pose_graph_.optimize(30);
-    std::cout << "3 to" << std::endl;
-    pose_graph_.updatePoses(pose_list_);
-    std::cout << "4 to" << std::endl;
+    std::cout << "setting" << std::endl;
+    loop_edges_.from = from;
+    loop_edges_.to = to;
+    std::cout << "end setting" << std::endl;
+    loop_edges_.pose = pose;
+    have_loop_ = true;
+
     return true;
 }
 
 bool SurfelMap::resetLoopTimes()
 {
-    loop_times_ = 0;
+    have_loop_ = false;
+    return true;
+}
+
+bool SurfelMap::savePose2File()
+{
+    std::ofstream filehandle;
+    filehandle.open(param_["pose_path"]);
+    if(filehandle.is_open())
+    {
+        for(int i = 0; i < pose_list_.size(); i++)
+        {
+            for(int j = 0; j < 11; j++)
+            {
+                int u = j / 4;
+                int v = j % 4;
+                filehandle << pose_list_[i](u, v) << " ";
+            }
+            filehandle << pose_list_[i](3, 3) << std::endl;
+        }
+        filehandle.close();
+    }
+    else
+    {
+        filehandle.close();
+        return false;
+    }
     return true;
 }

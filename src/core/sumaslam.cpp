@@ -59,6 +59,8 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
 //    std::unordered_map<int, int> label_nums;
 
     std::cout << "finish predict" << endl;
+//    pcl::PointCloud<pcl::PointXYZRGB> semanticpoint;
+//    pcl::copyPointCloud(*point_clouds_surfel, semanticpoint);
     // match the label from label_map and color the point cloud
     for(int i = 0; i < num_points; i++)
     {
@@ -80,10 +82,21 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
         point_clouds_surfel->points[i].r = net_->getColorR() / 256.0f;
         point_clouds_surfel->points[i].g = net_->getColorG() / 256.0f;
         point_clouds_surfel->points[i].b = net_->getColorB() / 256.0f;
+
+//        semanticpoint.points[i].r = net_->getColorR();
+//        semanticpoint.points[i].g = net_->getColorG();
+//        semanticpoint.points[i].b = net_->getColorB();
     }
 //    for(auto iter : label_nums)
 //    {
 //        std::cout << "type: " << iter.first << " number: " << iter.second << std::endl;
+//    }
+//    pcl::visualization::CloudViewer viewer("test");
+//
+//    viewer.showCloud(semanticpoint.makeShared());
+//    while(!viewer.wasStopped())
+//    {
+//
 //    }
     // generate surfel
     current_frame_->removeVehiclePoint();
@@ -235,6 +248,8 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
 
     int k = 0;
     int skip = params_["skip_gap"];
+
+    auto start = std::chrono::steady_clock::now();
     for(auto file : out_filelsits)
     {
         if(k < skip)
@@ -246,45 +261,28 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
         pcl::io::loadPCDFile<pcl::PointXYZI>(path + file, pointcloud);
         step(pointcloud);
 
-        if(timestamp_->getCurrentime() % render_gap == render_gap - 1)
-        {
-            pcl::PointCloud<Surfel> global_points;
-            generateMap(global_points);
-
-            pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
-            approximate_voxel_filter.setLeafSize(0.5, 0.5, 0.5);
-            approximate_voxel_filter.setInputCloud(global_points.makeShared());
-            approximate_voxel_filter.filter(global_points);
-            for(int i = 0; i < 10; i++)
-            {
-                std::cout << "*\t";
-            }
-            std::cout << std::endl;
-            std::cout << "render map. Map have: " << global_points.size() << std::endl;
-            for(int i = 0; i < 10; i++)
-            {
-                std::cout << "*\t";
-            }
-            std::cout << std::endl;
-            sensor_msgs::PointCloud2 msg;
-            pcl::toROSMsg(global_points, msg);
-            msg.header.frame_id = "velodyne";
-            pub.publish(msg);
-
-            std::shared_ptr<pcl::PointCloud<Surfel>> active_points;
-            map_->generateActiveMap();
-            active_points = map_->getActiveMapPtr()->getPointCloudsPtr();
-            sensor_msgs::PointCloud2 msg1;
-            pcl::toROSMsg(*active_points, msg);
-            msg.header.frame_id = "velodyne";
-            pub1.publish(msg);
-        }
+//        if(timestamp_->getCurrentime() % render_gap == render_gap - 1)
+//        {
+//
+//        }
     }
-
+    auto end = std::chrono::steady_clock::now();
     std::cout << "finish." << std::endl;
+    std::chrono::duration<double> elapsed_seconds = end-start;
+    std::cout << "It took " << elapsed_seconds.count() << " seconds." << std::endl;
+    //save pose
+    if(map_->savePose2File())
+    {
+        std::cout << "Success to save pose." << std::endl;
+    }
+    else
+    {
+        std::cout << "Fail to save pose." << std::endl;
+    }
+    //post global map
+    publicMap();
 
-
-    return false;
+    return true;
 }
 
 bool SumaSLAM::loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
@@ -304,8 +302,11 @@ bool SumaSLAM::loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_c
             0, 1, 0, 0,
             0, 0, 1, 0,
             0, 0, 0, 1;
+    std::cout << "start compute loopsure pose" << std::endl;
     pose_type res_pose = computePose(crt_point_clouds, pre_point_clouds, initial_pose);
-    map_->setLoopsureEdge(crt_index, pre_index, res_pose);
+    std::cout << "end compute loopsure pose" << std::endl;
+    bool result = map_->setLoopsureEdge(crt_index, pre_index, res_pose);
+    std::cout << "end add loopsure edge" << std::endl;
     return true;
 }
 
@@ -348,3 +349,69 @@ pose_type SumaSLAM::computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_p
     return ndt.getFinalTransformation();
 }
 
+void SumaSLAM::publicMap()
+{
+    pcl::PointCloud<Surfel> global_points;
+    generateMap(global_points);
+
+    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
+    approximate_voxel_filter.setLeafSize(0.5, 0.5, 0.5);
+    approximate_voxel_filter.setInputCloud(global_points.makeShared());
+    approximate_voxel_filter.filter(global_points);
+    for(int i = 0; i < 10; i++)
+    {
+        std::cout << "*\t";
+    }
+    std::cout << std::endl;
+    std::cout << "render map. Map have: " << global_points.size() << std::endl;
+    for(int i = 0; i < 10; i++)
+    {
+        std::cout << "*\t";
+    }
+    std::cout << std::endl;
+    sensor_msgs::PointCloud2 msg;
+    pcl::toROSMsg(global_points, msg);
+    msg.header.frame_id = "velodyne";
+    pub.publish(msg);
+
+//    std::shared_ptr<pcl::PointCloud<Surfel>> active_points;
+//    map_->generateActiveMap();
+//    active_points = map_->getActiveMapPtr()->getPointCloudsPtr();
+//    sensor_msgs::PointCloud2 msg1;
+//    pcl::toROSMsg(*active_points, msg);
+//    msg.header.frame_id = "velodyne";
+//    pub1.publish(msg);
+}
+
+void SumaSLAM::testLoopsure() {
+    std::string path = params_["pcdpath"];
+    std::vector<std::string> out_filelsits;
+    read_filelists(path, out_filelsits, "pcd");
+    sort_filelists(out_filelsits, "pcd");
+
+    std::ofstream filehandle;
+    filehandle.open(params_["loop_result"]);
+
+    int k = 0;
+
+    for(auto file : out_filelsits)
+    {
+        k++;
+        // read point cloud
+        pcl::PointCloud<pcl::PointXYZI> pointcloud;
+        pcl::io::loadPCDFile<pcl::PointXYZI>(path + file, pointcloud);
+        // preprocess
+        preprocess(pointcloud);
+        // loopsure detection
+        scManager_.makeAndSaveScancontextAndKeys(*current_frame_->getPointCloudsPtr());
+        auto pair_result = scManager_.detectLoopClosureID();
+        int SCclosestHistoryFrameID = pair_result.first;
+        if( SCclosestHistoryFrameID == -1 ) {
+            continue;
+        }
+        filehandle << k << " : " << SCclosestHistoryFrameID << std::endl;
+    }
+    filehandle.close();
+    std::cout << "finish." << std::endl;
+
+}
