@@ -7,7 +7,6 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     parseXmlFile(parameter_path, params_);
     timestamp_ = std::make_shared<Timestamp>();
 
-//    std::cout << "Init rangenet." << std::endl;
     net_ = std::make_shared<RangenetAPI>(params_);
     map_ = std::make_shared<SurfelMap>(params_, timestamp_);
 
@@ -17,7 +16,6 @@ SumaSLAM::SumaSLAM(const std::string& parameter_path) :
     max_angle_ = params_["max_angle_gap"];
     update_mode_ = true;
     crt_pose_ = pose_type::Identity();
-//    init();
 }
 
 void SumaSLAM::init()

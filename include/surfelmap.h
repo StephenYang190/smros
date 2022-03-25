@@ -67,6 +67,8 @@ private:
     std::shared_ptr<Timestamp> timestamp_;
     // store the loopsure edge
     sfm::loopsure_edge loop_edges_;
+    // transform velodyne coordinate to camera
+    pose_type cam2velo_, velo2cam_;
 
 protected:
     // update confidence

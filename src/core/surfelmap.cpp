@@ -44,6 +44,18 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp
     diag[3] = (rotNoise * rotNoise);
     diag[4] = (rotNoise * rotNoise);
     diag[5] = (rotNoise * rotNoise);
+
+    cam2velo_ << 0, 0, 1, 0,
+            -1, 0, 0, 0,
+            0, -1, 0, 0.08,
+            0, 0, 0, 1;
+    velo2cam_ << 0, -1, 0, 0,
+            0, 0, -1, 0,
+            1, 0, 0, -0.08,
+            0, 0, 0, 1;
+
+    cam2velo_ = cam2velo_.inverse();
+    velo2cam_ = velo2cam_.inverse();
 }
 
 SurfelMap::~SurfelMap() {
@@ -343,6 +355,9 @@ bool SurfelMap::savePose2File()
     {
         for(int i = 0; i < pose_list_.size(); i++)
         {
+            // transfer pose to camera coordinate
+            pose_list_[i] = cam2velo_ * pose_list_[i] * velo2cam_;
+            // save pose as kitti style
             for(int j = 0; j < 11; j++)
             {
                 int u = j / 4;
