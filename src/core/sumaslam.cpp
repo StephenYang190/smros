@@ -163,13 +163,12 @@ bool SumaSLAM::odometry() {
     float distance = 0;
     for(int i = 0; i < 3; i++)
     {
-        float dis = crt_pose_(i, 3) - init_pose(i, 3);
+        float dis = crt_pose_(i, 3);
         distance += dis * dis;
     }
     distance = sqrt(distance);
     // rotation angle
-    pose_type localpose = init_pose.inverse() * crt_pose_;
-    Eigen::Quaternionf q(localpose.block<3, 3>(0 , 0));
+    Eigen::Quaternionf q(crt_pose_.block<3, 3>(0 , 0));
     float angle_change = q.x() + q.y() + q.z();
     angle_change = abs(angle_change);
 
@@ -182,17 +181,6 @@ bool SumaSLAM::odometry() {
     std::cout << "angle: " << angle_change << std::endl;
     std::cout << "distance: " << distance << std::endl;
     std::cout << "mode: " << update_mode_ << std::endl;
-
-//    sensor_msgs::PointCloud2 msg1, msg2, msg3;
-//    pcl::toROSMsg(*current_frame_->getPointCloudsPtr(), msg1);
-//    pcl::toROSMsg(*map_->getActiveMapPtr(), msg2);
-//    pcl::toROSMsg(odometry_result_, msg3);
-//    msg1.header.frame_id = "velodyne";
-//    msg2.header.frame_id = "velodyne";
-//    msg3.header.frame_id = "velodyne";
-//    pub1.publish(msg1);
-//    pub2.publish(msg2);
-//    pub3.publish(msg3);
 
     return true;
 }
@@ -268,6 +256,7 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
     std::cout << "finish." << std::endl;
     std::chrono::duration<double> elapsed_seconds = end-start;
     std::cout << "It took " << elapsed_seconds.count() << " seconds." << std::endl;
+    publicMap();
     //save pose
     if(map_->savePose2File())
     {
@@ -278,8 +267,6 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
         std::cout << "Fail to save pose." << std::endl;
     }
     //post global map
-    publicMap();
-
     return true;
 }
 

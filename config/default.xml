@@ -15,7 +15,7 @@
 <param name="distance_thred" type="float">1</param>
 <param name="gamma" type="float">0.5</param>
 <param name="confidence_threshold" type="float">0.0</param>
-<param name="time_gap" type="integer">5</param>
+<param name="time_gap" type="integer">2</param>
 
 <!-- SumaSLAM parameters-->
 <param name="inactive_time" type="integer">10</param>

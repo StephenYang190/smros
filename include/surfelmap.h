@@ -27,6 +27,7 @@ using pose_type = Eigen::Matrix4f;
 namespace sfm{
     class loopsure_edge{
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         int from;
         int to;
         pose_type pose;
@@ -37,7 +38,8 @@ namespace sfm{
 class SurfelMap {
 private:
     // store pose frame by frame
-    std::vector<pose_type, Eigen::aligned_allocator<pose_type>> pose_list_;
+    std::vector<pose_type, Eigen::aligned_allocator<pose_type>> global_poses_;
+    std::vector<pose_type, Eigen::aligned_allocator<pose_type>> local_poses_;
     // store point clouds frame by frame
     std::vector<std::shared_ptr<pcl::PointCloud<Surfel>>> surfel_map_;
     // active map
@@ -80,7 +82,7 @@ public:
     SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp> time);
     ~SurfelMap();
     // add pose to pose list
-    bool pushBackPose(pose_type pose);
+    bool pushBackPose(pose_type& pose);
     // get pose at timestamp
     pose_type getLastPose();
     // intial map and pose
@@ -102,7 +104,7 @@ public:
     // get point clouds at timestamp in global coordination
     std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInGlobal(int timestamp);
     // set loop edge in factor graph
-    bool setLoopsureEdge(int from, int to, pose_type pose);
+    bool setLoopsureEdge(int from, int to, pose_type& pose);
     // get final point cloud index
     int getCurrentIndex() {return surfel_map_.size() - 1;}
     // reset loop times
