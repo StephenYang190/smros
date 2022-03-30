@@ -6,7 +6,7 @@
 
 using namespace gtsam;
 
-BackEndOpt::BackEndOpt() :
+Optimization::Optimization() :
     pose_graph_(),
     initials_(),
     results_()
@@ -14,12 +14,12 @@ BackEndOpt::BackEndOpt() :
 
 }
 
-BackEndOpt::~BackEndOpt() {
+Optimization::~Optimization() {
 
 }
 
-bool BackEndOpt::addEdge(int from, int to, const Eigen::Matrix4d &measurement,
-                         const Eigen::Matrix<double, 6, 6>& information) {
+bool Optimization::addEdge(int from, int to, const Eigen::Matrix4d &measurement,
+                           const Eigen::Matrix<double, 6, 6>& information) {
     auto odometry_model = noiseModel::Gaussian::Information(information);
 
     NonlinearFactor::shared_ptr  factor(new BetweenFactor<Pose3>(from, to, Pose3(measurement), odometry_model));
@@ -27,7 +27,7 @@ bool BackEndOpt::addEdge(int from, int to, const Eigen::Matrix4d &measurement,
     return false;
 }
 
-bool BackEndOpt::setInitialValues(int id, const Eigen::Matrix4d& initial_estimate) {
+bool Optimization::setInitialValues(int id, const Eigen::Matrix4d& initial_estimate) {
     bool addPrior = initials_.empty();
 
     if (!initials_.exists(id))
@@ -50,7 +50,7 @@ bool BackEndOpt::setInitialValues(int id, const Eigen::Matrix4d& initial_estimat
     return false;
 }
 
-bool BackEndOpt::optimize(int num_iters) {
+bool Optimization::optimize(int num_iters) {
     LevenbergMarquardtParams params;
     params.maxIterations = num_iters;
     params.setVerbosity("TERMINATION");  // this will show info about stopping conditions
@@ -61,7 +61,7 @@ bool BackEndOpt::optimize(int num_iters) {
     return true;
 }
 
-bool BackEndOpt::updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &pose) {
+bool Optimization::updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &pose) {
     for (const auto& pair : results_) {
         if (pair.key >= pose.size()) continue;
 

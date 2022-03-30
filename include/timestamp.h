@@ -12,7 +12,7 @@ public:
     int timestamp_;
 
     Timestamp();
-    ~Timestamp();
+    ~Timestamp() = default;
     int getCurrentime();
     bool nextTime();
 };

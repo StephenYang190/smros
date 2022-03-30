@@ -1,0 +1,5 @@
+<launch>
+<rosparam command="load" file="$(find smros)/config/default.yaml" />
+<node name="smros" pkg="smros" type="smros" output="screen" />
+<node name="rviz" pkg="rviz" type="rviz" output="screen" />
+</launch>

@@ -1,12 +1,8 @@
 #include "RangenetAPI.hpp"
 
 
-RangenetAPI::RangenetAPI(const rv::ParameterList& params){
-    std::string model_path;
-    if (params.hasParam("model_path")) {
-        model_path = std::string(params["model_path"]);
-    }
-    else{
+RangenetAPI::RangenetAPI(const std::string& model_path){
+    if (model_path.empty()) {
         std::cerr << "No model could be found!" << std::endl;
     }
 

@@ -111,6 +111,7 @@ int SCManager::fastAlignUsingVkey( MatrixXd & _vkey1, MatrixXd & _vkey2)
     }
 
     return argmin_vkey_shift;
+    return argmin_vkey_shift;
 
 } // fastAlignUsingVkey
 
@@ -165,7 +166,7 @@ MatrixXd SCManager::makeScancontext( pcl::PointCloud<Surfel> & _scan_down )
     int ring_idx, sctor_idx;
     for (int pt_idx = 0; pt_idx < num_pts_scan_down; pt_idx++)
     {
-        pt.x = _scan_down.points[pt_idx].x; 
+        pt.x = _scan_down.points[pt_idx].x;
         pt.y = _scan_down.points[pt_idx].y;
         pt.z = _scan_down.points[pt_idx].z + LIDAR_HEIGHT; // naive adding is ok (all points should be > 0).
 
@@ -290,7 +291,7 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
     knnsearch_result.init( &candidate_indexes[0], &out_dists_sqr[0] );
     polarcontext_tree_->index->findNeighbors( knnsearch_result, &curr_key[0] /* query */, nanoflann::SearchParams(10) ); 
     t_tree_search.toc("Tree search");
-
+    std::cout << "begin 2" << std::endl;
     /* 
      *  step 2: pairwise distance (find optimal columnwise best-fit using cosine distance)
      */
@@ -312,7 +313,7 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
         }
     }
     t_calc_dist.toc("Distance calc");
-
+    std::cout << "begin 3" << std::endl;
     /* 
      * loop threshold check
      */

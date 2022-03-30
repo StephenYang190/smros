@@ -34,9 +34,9 @@ void kittiPointCloudReceive(const sensor_msgs::PointCloud2ConstPtr &pointCloud2)
 int main(int argc, char** argv)
 {
     ros::init (argc, argv, "semantic_mapping");
-    SumaSLAM sumaslam("/home/tongda/workspace/semantic_map/smros_catkin_ws/src/smros/config/default.xml");
+    SumaSLAM sumaslam;
     sumaslam.init();
-    if(sumaslam.readFromFile("/home/tongda/workspace/semantic_map/dataset/pcd_data/test/"))
+    if(sumaslam.readFromFile())
     {
         std::cout << "Map construction well." << std::endl;
     }

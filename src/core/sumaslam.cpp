@@ -1,19 +1,24 @@
 #include "sumaslam.h"
 
-SumaSLAM::SumaSLAM(const std::string& parameter_path) :
+SumaSLAM::SumaSLAM() :
         odometry_result_(),
         scManager_()
 {
-    parseXmlFile(parameter_path, params_);
     timestamp_ = std::make_shared<Timestamp>();
+    // init rangenet
+    std::string model_path;
+    if(nh_.getParam("model_path", model_path))
+    {
+        net_ = std::make_shared<RangenetAPI>(model_path);
+    }
+    // init map
+    map_ = std::make_shared<SurfelMap>(timestamp_);
+    current_frame_ = std::make_shared<VertexMap>(map_->getInitConfidence());
+    // init paremeters
+    bool readresult;
+    readresult = nh_.getParam("max_distance_gap",max_distance_);
+    readresult = nh_.getParam("max_angle_gap",max_angle_);
 
-    net_ = std::make_shared<RangenetAPI>(params_);
-    map_ = std::make_shared<SurfelMap>(params_, timestamp_);
-
-    current_frame_ = std::make_shared<VertexMap>(params_, map_->getInitConfidence());
-    max_distance_ = params_["max_distance_gap"];
-
-    max_angle_ = params_["max_angle_gap"];
     update_mode_ = true;
     crt_pose_ = pose_type::Identity();
 }
@@ -55,8 +60,6 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     std::vector<std::vector<float>> semantic_result = net_->infer(points_xyzi_list, num_points);
 
 //    std::unordered_map<int, int> label_nums;
-
-    std::cout << "finish predict" << endl;
 //    pcl::PointCloud<pcl::PointXYZRGB> semanticpoint;
 //    pcl::copyPointCloud(*point_clouds_surfel, semanticpoint);
     // match the label from label_map and color the point cloud
@@ -130,15 +133,11 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     }
     else
     {
-        std::cout << "Preprocess using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
         odometry();
-//    readPose();
-        std::cout << "Odometry using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
         mapUpdate();
-        std::cout << "Update Map using: " << (float)(std::clock() - start_time) / CLOCKS_PER_SEC << std::endl;
         if(update_mode_)
         {
-            loopsureDetection(point_clouds_xyzi);
+            loopsureDetection();
         }
         else
         {
@@ -147,8 +146,6 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     }
 
     timestamp_->nextTime();
-    std::clock_t end_time = std::clock();
-    std::cout << "A step finish. " << "using " << (float)(end_time - start_time) / CLOCKS_PER_SEC << std::endl << std::endl;
     return true;
 }
 
@@ -178,9 +175,6 @@ bool SumaSLAM::odometry() {
     } else{
         update_mode_ = false;
     }
-    std::cout << "angle: " << angle_change << std::endl;
-    std::cout << "distance: " << distance << std::endl;
-    std::cout << "mode: " << update_mode_ << std::endl;
 
     return true;
 }
@@ -225,15 +219,19 @@ void sort_filelists(std::vector<std::string>& filists,std::string type)
     std::sort(filists.begin(),filists.end(),computePairNum);
 }
 
-bool SumaSLAM::readFromFile(std::string dir_path) {
-    std::string path = params_["pcdpath"];
+bool SumaSLAM::readFromFile() {
+    bool readresult;
+    std::string path;
+    int render_gap, skip;
+    readresult = nh_.getParam("pcdpath", path);
+    readresult = nh_.getParam("render_gap",render_gap);
+    readresult = nh_.getParam("skip_gap",skip);
+
     std::vector<std::string> out_filelsits;
     read_filelists(path, out_filelsits, "pcd");
     sort_filelists(out_filelsits, "pcd");
-    int render_gap = params_["render_gap"];
 
     int k = 0;
-    int skip = params_["skip_gap"];
 
     auto start = std::chrono::steady_clock::now();
     for(auto file : out_filelsits)
@@ -270,8 +268,9 @@ bool SumaSLAM::readFromFile(std::string dir_path) {
     return true;
 }
 
-bool SumaSLAM::loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
-    scManager_.makeAndSaveScancontextAndKeys(*current_frame_->getPointCloudsPtr());
+bool SumaSLAM::loopsureDetection() {
+    std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud = current_frame_->getPointCloudsPtr();
+    scManager_.makeAndSaveScancontextAndKeys(*pointcloud);
     auto pair_result = scManager_.detectLoopClosureID();
     int SCclosestHistoryFrameID = pair_result.first;
     if( SCclosestHistoryFrameID == -1 ) {
@@ -296,16 +295,12 @@ bool SumaSLAM::loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_c
 }
 
 bool SumaSLAM::mapUpdate() {
-//    if(timestamp_->getCurrentime() == 0)
-//    {
-//        map_->mapInitial();
-//    }
     map_->updateMap(current_frame_, update_mode_, crt_pose_);
     return false;
 }
 
 pose_type SumaSLAM::computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_points,
-                                std::shared_ptr<pcl::PointCloud<Surfel>> target_points, pose_type initial_pose) {
+                                std::shared_ptr<pcl::PointCloud<Surfel>> target_points, pose_type& initial_pose) {
     pcl::PointCloud<Surfel> filtered_cloud;
     pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
     approximate_voxel_filter.setLeafSize (0.1, 0.1, 0.1);
@@ -339,10 +334,6 @@ void SumaSLAM::publicMap()
     pcl::PointCloud<Surfel> global_points;
     generateMap(global_points);
 
-    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
-    approximate_voxel_filter.setLeafSize(0.5, 0.5, 0.5);
-    approximate_voxel_filter.setInputCloud(global_points.makeShared());
-    approximate_voxel_filter.filter(global_points);
     for(int i = 0; i < 10; i++)
     {
         std::cout << "*\t";
@@ -354,6 +345,11 @@ void SumaSLAM::publicMap()
         std::cout << "*\t";
     }
     std::cout << std::endl;
+
+    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
+    approximate_voxel_filter.setLeafSize(0.5, 0.5, 0.5);
+    approximate_voxel_filter.setInputCloud(global_points.makeShared());
+    approximate_voxel_filter.filter(global_points);
     sensor_msgs::PointCloud2 msg;
     pcl::toROSMsg(global_points, msg);
     msg.header.frame_id = "velodyne";
@@ -369,13 +365,21 @@ void SumaSLAM::publicMap()
 }
 
 void SumaSLAM::testLoopsure() {
-    std::string path = params_["pcdpath"];
+    std::string inpath, outpath;
+    if(nh_.getParam("pcdpath", inpath))
+    {
+
+    }
+    if(nh_.getParam("loop_result", outpath))
+    {
+
+    }
     std::vector<std::string> out_filelsits;
-    read_filelists(path, out_filelsits, "pcd");
+    read_filelists(inpath, out_filelsits, "pcd");
     sort_filelists(out_filelsits, "pcd");
 
     std::ofstream filehandle;
-    filehandle.open(params_["loop_result"]);
+    filehandle.open(outpath);
 
     int k = 0;
 
@@ -384,7 +388,7 @@ void SumaSLAM::testLoopsure() {
         k++;
         // read point cloud
         pcl::PointCloud<pcl::PointXYZI> pointcloud;
-        pcl::io::loadPCDFile<pcl::PointXYZI>(path + file, pointcloud);
+        pcl::io::loadPCDFile<pcl::PointXYZI>(inpath + file, pointcloud);
         // preprocess
         preprocess(pointcloud);
         // loopsure detection

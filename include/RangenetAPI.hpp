@@ -24,7 +24,7 @@ public:
     typedef std::tuple< u_char, u_char, u_char> semantic_color;
 
     RangenetAPI(){};
-    RangenetAPI(const rv::ParameterList& params);
+    RangenetAPI(const std::string& model_path);
 
     /** @brief      Infer logits from LiDAR scan **/
     std::vector<std::vector<float>> infer(const std::vector<float>& scan, const uint32_t num_points);

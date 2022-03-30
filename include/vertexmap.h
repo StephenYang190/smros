@@ -31,8 +31,10 @@ protected:
     float fov_up_, fov_down_, fov_;
     // point clouds
     std::shared_ptr<pcl::PointCloud<Surfel>> pointclouds_;
+    // ros nodehandle
+    ros::NodeHandle nh_;
 public:
-    VertexMapBase(rv::ParameterList parameter_list);
+    VertexMapBase();
     virtual ~VertexMapBase(){}
     std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsPtr() {return pointclouds_;}
     bool computeUVIndex(int point_index, int& u, int& v, float& r_xyz);
@@ -60,7 +62,7 @@ protected:
     // remove point not in the map from point clouds
     bool removeOutSizePoint();
 public:
-    VertexMap(rv::ParameterList parameter_list, float init_confidence);
+    VertexMap(float init_confidence);
     ~VertexMap();
     // set the point clouds xyz
     bool setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds);

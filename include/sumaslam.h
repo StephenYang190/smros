@@ -30,8 +30,6 @@ private:
     std::shared_ptr<RangenetAPI> net_;
     // frame to store current point clouds and tansform to surfel based point clouds
     std::shared_ptr<VertexMap> current_frame_;
-    // custom parameters list
-    rv::ParameterList params_;
     // timestamp
     std::shared_ptr<Timestamp> timestamp_;
     // store odometry transform result
@@ -48,6 +46,8 @@ private:
     bool update_mode_;
     // current pose
     pose_type crt_pose_;
+    // ros node handle
+    ros::NodeHandle nh_;
     // debug parameters
     ros::Publisher pub1, pub2, pub3;
     ros::Publisher pub;
@@ -57,7 +57,7 @@ protected:
     // update map
     bool mapUpdate();
     // loopsure detection
-    bool loopsureDetection(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
+    bool loopsureDetection();
     // pre-process point clouds(transform to surfel based point clouds)
     bool preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // odometry(ndt omp)
@@ -65,11 +65,11 @@ protected:
     // function used to compute pose
     pose_type computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_points,
                           std::shared_ptr<pcl::PointCloud<Surfel>> target_points,
-                          pose_type initial_pose);
+                          pose_type& initial_pose);
     // function to pose global map to ros node
     void publicMap();
 public:
-    SumaSLAM(const std::string& parameter_path = "");
+    SumaSLAM();
     void init();
     ~SumaSLAM() {
         inposes.close();
@@ -78,7 +78,7 @@ public:
     bool step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & point_cloud);
-    bool readFromFile(std::string dir_path);
+    bool readFromFile();
     bool readPose();
     // debug
     void testLoopsure();

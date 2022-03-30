@@ -6,33 +6,37 @@
 const float PI = acos(-1);
 
 
-SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp> time):
-        global_poses_(),
-        local_poses_(),
-        surfel_map_(0),
-        p_stable_(parameter_list["p_stable"]),
-        p_prior_(parameter_list["p_prior"]),
-        sigma_angle_2_(parameter_list["sigma_angle"]),
-        sigma_distance_2_(parameter_list["sigma_distance"]),
-        distance_thred_(parameter_list["distance_thred"]),
-        angle_thred_(parameter_list["angle_thred"]),
-        gamma_(parameter_list["gamma"]),
-        confidence_thred_(parameter_list["confidence_threshold"]),
-        time_gap_(parameter_list["time_gap"]),
-        active_map_index_in_map_(time_gap_, -1),
-        pose_graph_(),
-        timestamp_(time),
-        loop_edges_()
+SurfelMap::SurfelMap(std::shared_ptr<Timestamp> time)
+//        global_poses_(),
+//        local_poses_(),
+//        surfel_map_(0),
+//        pose_graph_()
 {
+    // read parameters from parameters server
+    bool readresult;
+    readresult = nh_.getParam("p_stable", p_stable_);
+    readresult = nh_.getParam("p_prior", p_prior_);
+    readresult = nh_.getParam("sigma_angle", sigma_angle_2_);
+    readresult = nh_.getParam("sigma_distance", sigma_distance_2_);
+    readresult = nh_.getParam("distance_thred", distance_thred_);
+    readresult = nh_.getParam("angle_thred", angle_thred_);
+    readresult = nh_.getParam("gamma", gamma_);
+    readresult = nh_.getParam("confidence_threshold", confidence_thred_);
+    readresult = nh_.getParam("time_gap", time_gap_);
+    readresult = nh_.getParam("loop_thred", loop_thred_);
+
     odds_p_prior_ = std::log(p_prior_ / (1 - p_prior_));
     initial_confidence_ = std::log(p_stable_ / (1 - p_stable_)) - odds_p_prior_;
     sigma_angle_2_ = sigma_angle_2_ * sigma_angle_2_;
     sigma_distance_2_ = sigma_distance_2_ * sigma_distance_2_;
     angle_thred_ = std::sin(angle_thred_);
-    active_map_ = std::make_shared<VertexMap>(parameter_list, initial_confidence_);
-    param_ = parameter_list;
-    loop_thred_ = param_["loop_thred"];
+
+    active_map_ = std::make_shared<VertexMap>(initial_confidence_);
     have_loop_ = false;
+    
+//    loop_edges_ = std::make_shared<sfm::loopsure_edge>();
+    loopsure_poses_.resize(1);
+    timestamp_ = time;
 
     auto& diag = info_.diagonal();
     // translational noise is smaller than rotational noise.
@@ -55,12 +59,8 @@ SurfelMap::SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp
             1, 0, 0, -0.08,
             0, 0, 0, 1;
 
-    cam2velo_ = cam2velo_.inverse().eval();
-    velo2cam_ = velo2cam_.inverse().eval();
-}
-
-SurfelMap::~SurfelMap() {
-
+//    cam2velo_ = cam2velo_.inverse().eval();
+//    velo2cam_ = velo2cam_.inverse().eval();
 }
 
 bool SurfelMap::pushBackPose(pose_type& pose) {
@@ -93,7 +93,7 @@ pose_type SurfelMap::getLastPose() {
     return local_poses_.back();
 }
 
-bool SurfelMap::mapInitial(pose_type init_pose)
+bool SurfelMap::mapInitial(pose_type& init_pose)
 {
     // push init pose
     pushBackPose(init_pose);
@@ -305,7 +305,6 @@ bool SurfelMap::generateActiveMap()
         pcl::PointCloud<Surfel> transform_result;
         pcl::transformPointCloud(*surfel_map_[i], transform_result, last_pose);
         *point_in_active_map += transform_result;
-        active_map_index_in_map_[k] = transform_result.size();
         last_pose = last_pose * local_poses_[i].inverse();
     }
     return true;
@@ -343,22 +342,16 @@ std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInGlobal(int t
 
 bool SurfelMap::setLoopsureEdge(int from, int to, pose_type& pose) {
     // valid last loopsure
-    if(have_loop_ && from - loop_edges_.from < loop_thred_)
+    if(have_loop_ && from - from_ < loop_thred_)
     {
         // optimise pose
-        std::cout << "1 to" << std::endl;
-        pose_graph_.addEdge(loop_edges_.from, loop_edges_.to, loop_edges_.pose.cast<double>(), info_);
-        std::cout << "2 to" << std::endl;
+        pose_graph_.addEdge(from_, to_, loopsure_poses_[0].cast<double>(), info_);
         pose_graph_.optimize(30);
-        std::cout << "3 to" << std::endl;
         pose_graph_.updatePoses(global_poses_);
-        std::cout << "4 to" << std::endl;
     }
-    std::cout << "setting" << std::endl;
-    loop_edges_.from = from;
-    loop_edges_.to = to;
-    std::cout << "end setting" << std::endl;
-    loop_edges_.pose = pose;
+    from_ = from;
+    to_ = to;
+    loopsure_poses_[0] = pose;
     have_loop_ = true;
 
     return true;
@@ -373,23 +366,26 @@ bool SurfelMap::resetLoopTimes()
 bool SurfelMap::savePose2File()
 {
     std::ofstream filehandle;
-    filehandle.open(param_["pose_path"]);
+    std::string filepath;
+    if(!nh_.getParam("pose_path",filepath))
+    {
+        std::cout << "no parameter" << std::endl;
+    }
+    filehandle.open(filepath);
     if(filehandle.is_open())
     {
         for(int i = 0; i < global_poses_.size(); i++)
         {
             // transfer pose to camera coordinate
-            global_poses_[i] = cam2velo_ * global_poses_[i] * velo2cam_;
+//            global_poses_[i] = cam2velo_ * global_poses_[i] * velo2cam_;
             // save pose as kitti style
             for(int j = 0; j < 11; j++)
             {
                 int u = j / 4;
                 int v = j % 4;
                 filehandle << global_poses_[i](u, v) << " ";
-//                filehandle << local_poses_[i](u, v) << " ";
             }
             filehandle << global_poses_[i](3, 3) << std::endl;
-//            filehandle << local_poses_[i](3, 3) << std::endl;
         }
         filehandle.close();
     }
@@ -400,3 +396,15 @@ bool SurfelMap::savePose2File()
     }
     return true;
 }
+
+int SurfelMap::getCurrentIndex()
+{
+    return surfel_map_.size() - 1;
+}
+
+const std::shared_ptr<VertexMap> SurfelMap::getActiveMapPtr()
+{
+    return active_map_;
+}
+
+float SurfelMap::getInitConfidence() {return initial_confidence_;}

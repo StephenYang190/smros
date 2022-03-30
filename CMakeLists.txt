@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(smros)
+SET(CMAKE_BUILD_TYPE "Release")
 
 find_package(catkin REQUIRED COMPONENTS
         roscpp
@@ -47,8 +48,8 @@ add_library(ndt_omp
         src/pclomp/ndt_omp.cpp
         )
 
-add_library(scancontext
-        include/Scancontext/Scancontext.cpp)
+#add_library(scancontext
+#        include/Scancontext/Scancontext.cpp)
 
 add_executable(smros
         src/core/main.cpp
@@ -59,22 +60,7 @@ add_executable(smros
 #        src/core/PointIndex.cpp
         src/core/backendopt.cpp
         src/core/timestamp.cpp
-#        robovision
-        include/rv/CompositeParameter.cpp
-        include/rv/FileUtil.cpp
-        include/rv/Laserscan.cpp
-        include/rv/Math.cpp
-        include/rv/Parameter.cpp
-        include/rv/ParameterList.cpp
-        include/rv/ParameterListIterator.cpp
-        include/rv/PrimitiveParameters.cpp
-        include/rv/Random.cpp
-        include/rv/RangeParameter.cpp
-        include/rv/string_utils.cpp
-        include/rv/Stopwatch.cpp
-        include/rv/transform.cpp
-        include/rv/XmlDocument.cpp
-        include/rv/XmlNode.cpp
-        include/rv/yxml.c
+        include/Scancontext/Scancontext.cpp
+
         )
-target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${G2O_LIBRARIES} ${Boost_LIBRARIES} gtsam scancontext)
+target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${G2O_LIBRARIES} ${Boost_LIBRARIES} gtsam)

@@ -24,22 +24,34 @@
 
 // define the pose type as matrix4f
 using pose_type = Eigen::Matrix4f;
-namespace sfm{
-    class loopsure_edge{
-    public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        int from;
-        int to;
-        pose_type pose;
-        loopsure_edge() : from(-1), to(-1), pose(Eigen::Matrix4f::Identity()){}
-    };
-}
+//namespace sfm{
+//    class loopsure_edge{
+//    public:
+//        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+//        int from = -1;
+//        int to = -1;
+//        pose_type pose;
+//
+////        loopsure_edge() = default;
+//
+//        loopsure_edge() : from(-1), to(-1), pose(Eigen::Matrix4f::Identity()){};
+////            pose.setIdentity();
+////            pose << 1,0,0,0,
+////            0,1,0,0,
+////            0,0,1,0,
+////            0,0,0,1;
+////        }
+//    };
+//}
 
 class SurfelMap {
 private:
     // store pose frame by frame
     std::vector<pose_type, Eigen::aligned_allocator<pose_type>> global_poses_;
     std::vector<pose_type, Eigen::aligned_allocator<pose_type>> local_poses_;
+    std::vector<pose_type, Eigen::aligned_allocator<pose_type>> loopsure_poses_;
+    int from_;
+    int to_;
     // store point clouds frame by frame
     std::vector<std::shared_ptr<pcl::PointCloud<Surfel>>> surfel_map_;
     // active map
@@ -53,12 +65,10 @@ private:
     float confidence_thred_;
     // parameters used to define the length of active map
     int time_gap_;
-    // store the point clouds number of each frame in active map
-    std::vector<int> active_map_index_in_map_;
-    // custom parameters list
-    rv::ParameterList param_;
+    // ros nodehandle
+    ros::NodeHandle nh_;
     // pose graph
-    BackEndOpt pose_graph_;
+    Optimization pose_graph_;
     // information metrix
     Eigen::DiagonalMatrix<double, 6> info_;
     // parameter used to control the time to optimization
@@ -68,7 +78,7 @@ private:
     // timestamp
     std::shared_ptr<Timestamp> timestamp_;
     // store the loopsure edge
-    sfm::loopsure_edge loop_edges_;
+//    std::shared_ptr<sfm::loopsure_edge> loop_edges_;
     // transform velodyne coordinate to camera
     pose_type cam2velo_, velo2cam_;
 
@@ -79,20 +89,19 @@ protected:
     bool removeUnstableSurfel();
 
 public:
-    SurfelMap(rv::ParameterList parameter_list, std::shared_ptr<Timestamp> time);
-    ~SurfelMap();
+    SurfelMap(std::shared_ptr<Timestamp> time);
     // add pose to pose list
     bool pushBackPose(pose_type& pose);
     // get pose at timestamp
     pose_type getLastPose();
     // intial map and pose
-    bool mapInitial(pose_type init_pose = pose_type::Identity());
+    bool mapInitial(pose_type& init_pose);
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & global_map);
     // get active map ptr
-    const std::shared_ptr<VertexMap> getActiveMapPtr() {return active_map_;}
+    const std::shared_ptr<VertexMap> getActiveMapPtr();
     // get initial confidence
-    float getInitConfidence() {return initial_confidence_;}
+    float getInitConfidence();
     // generate active map at now timestamp
     bool generateActiveMap();
     // update map
@@ -106,7 +115,7 @@ public:
     // set loop edge in factor graph
     bool setLoopsureEdge(int from, int to, pose_type& pose);
     // get final point cloud index
-    int getCurrentIndex() {return surfel_map_.size() - 1;}
+    int getCurrentIndex();
     // reset loop times
     bool resetLoopTimes();
     // sae pose to file

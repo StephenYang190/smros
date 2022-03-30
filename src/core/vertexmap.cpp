@@ -7,8 +7,8 @@
 
 const float PI = acos(-1);
 
-VertexMap::VertexMap(rv::ParameterList parameter_list, float init_confidence) :
-        VertexMapBase(parameter_list),
+VertexMap::VertexMap(float init_confidence) :
+        VertexMapBase(),
         initial_confidence_(init_confidence)
 {
     maps_.resize(width_);
@@ -193,12 +193,13 @@ bool VertexMap::removeOutSizePoint()
     return true;
 }
 
-VertexMapBase::VertexMapBase(rv::ParameterList parameter_list) :
-        width_(parameter_list["width"]),
-        height_(parameter_list["height"])
+VertexMapBase::VertexMapBase()
 {
-    fov_down_ = parameter_list["fov_down"];
-    fov_up_ = parameter_list["fov_up"];
+    bool readresult;
+    readresult = nh_.getParam("width",width_);
+    readresult = nh_.getParam("height",height_);
+    readresult = nh_.getParam("fov_down",fov_down_);
+    readresult = nh_.getParam("fov_up",fov_up_);
     fov_ = abs(fov_up_) + abs(fov_down_);
     pointclouds_ = std::make_shared<pcl::PointCloud<Surfel>>();
 }
@@ -232,7 +233,7 @@ bool VertexMapBase::computeUVIndex(int point_index, int& u, int& v, float& r_xyz
 }
 
 PointIndex::PointIndex(rv::ParameterList parameter_list) :
-        VertexMapBase(parameter_list)
+        VertexMapBase()
 {
 
 }
