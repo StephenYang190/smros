@@ -4,7 +4,7 @@ This repository contains the completeation of semantic mapping based on ros.
 
 Developed by Tongda Yang.
 
-![picture1](picture/shortcut.png)
+![image](picture/example_gif.gif)
 
 ## Now statue:
 
