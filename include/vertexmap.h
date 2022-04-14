@@ -8,7 +8,6 @@
 #define SMROS_FRAME_H
 
 #include <pcl_conversions/pcl_conversions.h>
-#include <rv/ParameterList.h>
 #include <memory>
 #include <cmath>
 #include <pcl/filters/impl/filter.hpp>
@@ -68,6 +67,7 @@ public:
     bool setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds);
     // transform point clouds to surfel based point clouds(compute the radius and other parameters)
     bool points2Surfel(int timestamp);
+    bool points2Surfel(int timestamp, bool isdown);
     // get point number
     int getPointNum() {return pointclouds_->size();}
     // get point index on vertex map
@@ -89,7 +89,7 @@ private:
 protected:
 
 public:
-    PointIndex(rv::ParameterList parameter_list);
+    PointIndex();
     ~PointIndex() {};
     // find index of each point
     bool generateMappingIndex();

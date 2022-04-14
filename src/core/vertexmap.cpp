@@ -34,7 +34,6 @@ bool VertexMap::setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_c
 bool VertexMap::points2Surfel(int timestamp) {
     computeMappingIndex();
 
-    std::vector<int> stay_point_index;
     // compute normal
     for(int u = 0; u < width_; u++)
     {
@@ -47,7 +46,6 @@ bool VertexMap::points2Surfel(int timestamp) {
             }
             // save the index
             int index = maps_[u][v].index;
-            stay_point_index.push_back(index);
             // find nearest point
             int u_index = (u + 1) % width_, v_index = (v + 1) % height_;
             while(true)
@@ -88,6 +86,68 @@ bool VertexMap::points2Surfel(int timestamp) {
 
     // romove nan point
     removeOutSizePoint();
+
+    return true;
+}
+
+bool VertexMap::points2Surfel(int timestamp, bool isdown) {
+    computeMappingIndex();
+
+    // compute normal
+    for(int u = 0; u < width_; u++)
+    {
+        for(int v = 0; v < height_; v++)
+        {
+            // no point fit in this way
+            if(maps_[u][v].index < 0)
+            {
+                continue;
+            }
+            // save the index
+            int index = maps_[u][v].index;
+            // find nearest point
+            int u_index = (u + 1) % width_, v_index = (v + 1) % height_;
+            while(true)
+            {
+                if (maps_[u_index][v].index != -1)
+                    break;
+                u_index = (u_index + 1) % width_;
+            }
+            while(true)
+            {
+                if (maps_[u][v_index].index != -1)
+                    break;
+                v_index = (v_index + 1) % height_;
+            }
+            // get the point
+            int u_point_index = maps_[u_index][v].index;
+            int v_point_index = maps_[u][v_index].index;
+            Eigen::Vector3d u1 (pointclouds_->points[u_point_index].x, pointclouds_->points[u_point_index].y, pointclouds_->points[u_point_index].z);
+            Eigen::Vector3d v1 (pointclouds_->points[v_point_index].x, pointclouds_->points[v_point_index].y, pointclouds_->points[v_point_index].z);;
+            Eigen::Vector3d point_xyz (pointclouds_->points[index].x, pointclouds_->points[index].y, pointclouds_->points[index].z);;
+            // compute normal
+            Eigen::Vector3d normal = (u1 - point_xyz).cross(v1 - point_xyz);
+            normal.normalize();
+            // compute radius
+            float molecular = sqrt(2.0) * maps_[u][v].radius * p_;
+            double dis = -1.0 * point_xyz.dot(normal) / maps_[u][v].radius;
+            float denominator = std::min(1.0, std::max(dis, 0.5));
+            // set surfel
+            pointclouds_->points[index].radius = molecular / denominator;
+            pointclouds_->points[index].nx = normal[0];
+            pointclouds_->points[index].ny = normal[1];
+            pointclouds_->points[index].nz = normal[2];
+            pointclouds_->points[index].create_timestamp = timestamp;
+            pointclouds_->points[index].update_timestamp = timestamp;
+            pointclouds_->points[index].confidence = initial_confidence_;
+        }
+    }
+
+    // romove nan point
+    if(isdown)
+    {
+        removeOutSizePoint();
+    }
 
     return true;
 }
@@ -162,7 +222,9 @@ bool VertexMap::generateMappingIndex() {
 bool VertexMap::removeVehiclePoint() {
     for(int i = 0; i < pointclouds_->size(); i++)
     {
-        if(pointclouds_->points[i].point_type < 39)
+        if(pointclouds_->points[i].point_type < 39 ||
+                pointclouds_->points[i].point_type > 100 ||
+                pointclouds_->points[i].point_type == 70)
         {
             pointclouds_->points[i].y = NAN;
         }
@@ -232,7 +294,7 @@ bool VertexMapBase::computeUVIndex(int point_index, int& u, int& v, float& r_xyz
     return true;
 }
 
-PointIndex::PointIndex(rv::ParameterList parameter_list) :
+PointIndex::PointIndex() :
         VertexMapBase()
 {
 

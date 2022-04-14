@@ -40,6 +40,12 @@ int main(int argc, char** argv)
     {
         std::cout << "Map construction well." << std::endl;
     }
+    ros::Rate r(10);
+    while (ros::ok()){
+        ros::spinOnce();
+        r.sleep();
+    }
+
 //    sumaslam.testLoopsure();
 
 //    ros::Rate rate(2);

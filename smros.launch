@@ -1,5 +1,6 @@
 <launch>
 <rosparam command="load" file="$(find smros)/config/default.yaml" />
 <node name="smros" pkg="smros" type="smros" output="screen" />
-<node name="rviz" pkg="rviz" type="rviz" output="screen" />
+<node name="map" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_config.rviz" output="screen" />
+<node name="path" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_path_config.rviz" output="screen" />
 </launch>

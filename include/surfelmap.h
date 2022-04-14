@@ -17,6 +17,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/impl/kdtree_flann.hpp>
 #include <fstream>
+#include <nav_msgs/Path.h>
 
 #include "vertexmap.h"
 #include "backendopt.h"
@@ -67,6 +68,8 @@ private:
     int time_gap_;
     // ros nodehandle
     ros::NodeHandle nh_;
+    // ros publisher
+    ros::Publisher pub_;
     // pose graph
     Optimization pose_graph_;
     // information metrix
@@ -76,11 +79,11 @@ private:
     // parameter used to mark loopsure
     bool have_loop_;
     // timestamp
-    std::shared_ptr<Timestamp> timestamp_;
+    int timestamp_;
     // store the loopsure edge
 //    std::shared_ptr<sfm::loopsure_edge> loop_edges_;
-    // transform velodyne coordinate to camera
-    pose_type cam2velo_, velo2cam_;
+    // path to save pose
+    std::string pose_out_path_;
 
 protected:
     // update confidence
@@ -89,7 +92,7 @@ protected:
     bool removeUnstableSurfel();
 
 public:
-    SurfelMap(std::shared_ptr<Timestamp> time);
+    SurfelMap();
     // add pose to pose list
     bool pushBackPose(pose_type& pose);
     // get pose at timestamp
@@ -98,20 +101,20 @@ public:
     bool mapInitial(pose_type& init_pose);
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & global_map);
+    bool generateMap(std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> global_map);
     // get active map ptr
-    const std::shared_ptr<VertexMap> getActiveMapPtr();
+    std::shared_ptr<VertexMap> getActiveMapPtr();
     // get initial confidence
     float getInitConfidence();
     // generate active map at now timestamp
     bool generateActiveMap();
     // update map
-    bool updateMap(std::shared_ptr<VertexMap> current_frame);
-    bool updateMap(std::shared_ptr<VertexMap> current_frame, bool mode = false,
+    bool updateMap(std::shared_ptr<VertexMap> current_frame,
                    pose_type crt_pose = pose_type::Identity());
-    // get point clouds at timestamp in local coordination
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInLocal(int timestamp);
-    // get point clouds at timestamp in global coordination
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInGlobal(int timestamp);
+    // get point clouds at id in local coordination
+    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInLocal(int id);
+    // get point clouds at id in global coordination
+    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInGlobal(int id);
     // set loop edge in factor graph
     bool setLoopsureEdge(int from, int to, pose_type& pose);
     // get final point cloud index
@@ -119,8 +122,11 @@ public:
     // reset loop times
     bool resetLoopTimes();
     // sae pose to file
-    bool savePose2File();
-
+    bool savePose2File(std::string suffix);
+    // get timestamp
+    int getTimestamp();
+    // ros path
+    bool rospath();
 };
 
 

@@ -1,2 +1,5 @@
 .idea
 cmake-build-debug
+result/pcd_result
+result/pose_ref
+result/pose_result

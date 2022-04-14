@@ -291,7 +291,6 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
     knnsearch_result.init( &candidate_indexes[0], &out_dists_sqr[0] );
     polarcontext_tree_->index->findNeighbors( knnsearch_result, &curr_key[0] /* query */, nanoflann::SearchParams(10) ); 
     t_tree_search.toc("Tree search");
-    std::cout << "begin 2" << std::endl;
     /* 
      *  step 2: pairwise distance (find optimal columnwise best-fit using cosine distance)
      */
@@ -313,7 +312,6 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
         }
     }
     t_calc_dist.toc("Distance calc");
-    std::cout << "begin 3" << std::endl;
     /* 
      * loop threshold check
      */

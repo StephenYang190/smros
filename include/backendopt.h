@@ -42,10 +42,26 @@ private:
     // optimization
     Optimization pose_graph_;
     // store position of each frame
-    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> positions_;
+    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> position_s_;
+    // inactive map time
+    int inactive_;
+    // oodometry max distance between two frames
+    float max_dis_;
+    // ros nodehanle
+    ros::NodeHandle nh_;
+protected:
+    // find loop closure from scan context
+    std::pair<int, int> scDetection(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud);
+    // find loop closure from odometry
+    std::pair<int, int> odDetection(Eigen::Matrix4f& pose);
 public:
     BackEndOpt();
-    ~BackEndOpt();
+    ~BackEndOpt() = default;
+    std::pair<int, int> detectLoopClosure(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud, Eigen::Matrix4f& pose);
+    bool optimise(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> & pose_s);
+    bool setInitialValues(int id, const Eigen::Matrix4d& initial_estimate);
+    bool addEdge(int from, int to, const Eigen::Matrix4d & measurement,
+                 const Eigen::Matrix<double, 6, 6>& information);
 };
 
 #endif //SRC_BACKENDOPT_H
