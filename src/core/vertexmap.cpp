@@ -24,6 +24,11 @@ VertexMap::~VertexMap() {
 
 }
 
+pcl::PointCloud<Surfel>::Ptr VertexMapBase::getPointCloudsPtr()
+{
+    return pointclouds_;
+}
+
 bool VertexMap::setPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_clouds) {
     pointclouds_->clear();
     clearIndexMap();
@@ -180,7 +185,6 @@ bool VertexMap::computeMappingIndex() {
         maps_[u][v].radius = r_xyz;
         maps_[u][v].index = i;
         maps_[u][v].point_x = pointclouds_->points[i].x;
-
     }
 
     return true;
@@ -237,15 +241,38 @@ bool VertexMap::removeOutSizePoint()
 {
     int num_points = pointclouds_->size();
     // set all point to nan
+    // remove unstable type
+    std::map<int, int> label_nums;
     for(int i = 0; i < num_points; i++)
     {
         pointclouds_->points[i].x = NAN;
+        label_nums[pointclouds_->points[i].point_type]++;
+    }
+    // remove discrete points
+    std::vector<int> point_nums(height_, 0);
+    for(int u = 0; u < width_; u++) {
+        for (int v = 0; v < height_; v++) {
+            // no point fit in this site
+            if (maps_[u][v].index < 0) {
+                continue;
+            }
+            point_nums[v]++;
+        }
     }
     // recover the point in map
     for(int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
             // no point fit in this site
-            if (maps_[u][v].index < 0) {
+            if(point_nums[v] < linenum)
+            {
+                continue;
+            }
+            if (maps_[u][v].index < 0)
+            {
+                continue;
+            }
+            if(label_nums[pointclouds_->points[maps_[u][v].index].point_type] < 30)
+            {
                 continue;
             }
             pointclouds_->points[maps_[u][v].index].x = maps_[u][v].point_x;
@@ -255,15 +282,17 @@ bool VertexMap::removeOutSizePoint()
     return true;
 }
 
-VertexMapBase::VertexMapBase()
+VertexMapBase::VertexMapBase() :
+        pointclouds_(new pcl::PointCloud<Surfel>())
 {
     bool readresult;
     readresult = nh_.getParam("width",width_);
     readresult = nh_.getParam("height",height_);
     readresult = nh_.getParam("fov_down",fov_down_);
     readresult = nh_.getParam("fov_up",fov_up_);
+    nh_.getParam("max_distance", max_distance_);
+    nh_.getParam("line", linenum);
     fov_ = abs(fov_up_) + abs(fov_down_);
-    pointclouds_ = std::make_shared<pcl::PointCloud<Surfel>>();
 }
 
 bool VertexMapBase::computeUVIndex(int point_index, int& u, int& v, float& r_xyz) {
@@ -274,8 +303,8 @@ bool VertexMapBase::computeUVIndex(int point_index, int& u, int& v, float& r_xyz
     z = pointclouds_->points[point_index].z;
     // compute the distance to zero point
     r_xyz = sqrt(x*x + y*y + z*z);
-    // error point
-    if(r_xyz < 1e-5)
+    // remove point which is to close
+    if(r_xyz < 0.1 || r_xyz > max_distance_)
     {
         pointclouds_->points[point_index].y = NAN;
         return false;

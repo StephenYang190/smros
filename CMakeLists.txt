@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
         pcl_ros
         pcl_conversions
         rangenet_lib
+        smros_msgs
 )
 find_package(PCL REQUIRED)
 find_package(CUDA REQUIRED)
@@ -31,7 +32,6 @@ catkin_package(
         Boost
 )
 
-message("${PCL_INCLUDE_DIRS}")
 include_directories(
 # include
     include
@@ -51,16 +51,52 @@ add_library(ndt_omp
 #add_library(scancontext
 #        include/Scancontext/Scancontext.cpp)
 
-add_executable(smros
-        src/core/main.cpp
-        src/core/RangenetAPI.cpp
-        src/core/sumaslam.cpp
-        src/core/vertexmap.cpp
-        src/core/surfelmap.cpp
-#        src/core/PointIndex.cpp
-        src/core/backendopt.cpp
-        src/core/timestamp.cpp
-        include/Scancontext/Scancontext.cpp
+#add_executable(smros
+#        src/core/main.cpp
+#        src/core/RangenetAPI.cpp
+#        src/core/sumaslam.cpp
+#        src/core/vertexmap.cpp
+#        src/core/surfelmap.cpp
+##        src/core/PointIndex.cpp
+#        src/core/backendopt.cpp
+#        src/core/timestamp.cpp
+#        include/Scancontext/Scancontext.cpp
+#        )
+#target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${G2O_LIBRARIES} ${Boost_LIBRARIES} gtsam)
 
+add_executable(lasereader
+        src/rosnode/lasereader.cpp
+        src/core/KittiReader.cpp
         )
-target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${G2O_LIBRARIES} ${Boost_LIBRARIES} gtsam)
+target_link_libraries(lasereader ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(laserprocess
+        src/rosnode/laserprocess.cpp
+        src/core/Preprocess.cpp
+        src/core/RangenetAPI.cpp
+        src/core/vertexmap.cpp
+        )
+target_link_libraries(laserprocess ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(laserodometry
+        src/rosnode/laserodometry.cpp
+        src/core/Odometry.cpp
+        src/core/backendopt.cpp
+        )
+target_link_libraries(laserodometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+
+add_executable(laserloop
+        src/rosnode/laserloop.cpp
+        src/core/LoopClosureDetection.cpp
+        include/Scancontext/Scancontext.cpp
+        )
+target_link_libraries(laserloop ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_dependencies(laserloop ${catkin_EXPORTED_TARGETS})
+
+add_executable(lasermap
+        src/rosnode/lasermap.cpp
+        src/core/SemanticMap.cpp
+        src/core/backendopt.cpp
+        )
+target_link_libraries(lasermap ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+add_dependencies(lasermap ${catkin_EXPORTED_TARGETS})

@@ -54,7 +54,7 @@ private:
     int from_;
     int to_;
     // store point clouds frame by frame
-    std::vector<std::shared_ptr<pcl::PointCloud<Surfel>>> surfel_map_;
+    std::vector<pcl::PointCloud<Surfel>::Ptr> surfel_map_;
     // active map
     std::shared_ptr<VertexMap> active_map_;
     // parameters used to compute confidence
@@ -71,7 +71,7 @@ private:
     // ros publisher
     ros::Publisher pub_;
     // pose graph
-    Optimization pose_graph_;
+    BackEndOpt pose_graph_;
     // information metrix
     Eigen::DiagonalMatrix<double, 6> info_;
     // parameter used to control the time to optimization
@@ -84,6 +84,8 @@ private:
 //    std::shared_ptr<sfm::loopsure_edge> loop_edges_;
     // path to save pose
     std::string pose_out_path_;
+    // navigation path message
+    nav_msgs::Path path_s;
 
 protected:
     // update confidence
@@ -101,7 +103,7 @@ public:
     bool mapInitial(pose_type& init_pose);
     // generate global map
     bool generateMap(pcl::PointCloud<Surfel> & global_map);
-    bool generateMap(std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> global_map);
+    bool generateMap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr global_map);
     // get active map ptr
     std::shared_ptr<VertexMap> getActiveMapPtr();
     // get initial confidence
@@ -112,9 +114,9 @@ public:
     bool updateMap(std::shared_ptr<VertexMap> current_frame,
                    pose_type crt_pose = pose_type::Identity());
     // get point clouds at id in local coordination
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInLocal(int id);
+    pcl::PointCloud<Surfel>::Ptr getPointCloudsInLocal(int id);
     // get point clouds at id in global coordination
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsInGlobal(int id);
+    pcl::PointCloud<Surfel>::Ptr getPointCloudsInGlobal(int id);
     // set loop edge in factor graph
     bool setLoopsureEdge(int from, int to, pose_type& pose);
     // get final point cloud index

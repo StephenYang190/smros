@@ -1,0 +1,8 @@
+<launch>
+<rosparam command="load" file="$(find smros)/config/default.yaml" />
+<node name="laserprocess" pkg="smros" type="laserprocess" output="screen" />
+<node name="laserodometry" pkg="smros" type="laserodometry" output="screen" />
+<node name="laserloop" pkg="smros" type="laserloop" output="screen" />
+<!-- <node name="lasermap" pkg="smros" type="lasermap" output="screen" /> -->
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_config_laser.rviz" output="screen" />
+</launch>

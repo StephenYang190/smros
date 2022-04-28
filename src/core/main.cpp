@@ -38,7 +38,7 @@ int main(int argc, char** argv)
     sumaslam.init();
     if(sumaslam.readFromFile())
     {
-        std::cout << "Map construction well." << std::endl;
+        std::cout << "SemanticMap construction well." << std::endl;
     }
     ros::Rate r(10);
     while (ros::ok()){

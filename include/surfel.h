@@ -6,7 +6,6 @@
 #ifndef SMROS_SURFEL_H
 #define SMROS_SURFEL_H
 
-#include <Eigen/Dense>
 #include <pcl/pcl_macros.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>

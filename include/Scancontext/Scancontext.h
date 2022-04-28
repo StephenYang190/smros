@@ -71,7 +71,8 @@ public:
 
     // User-side API
     void makeAndSaveScancontextAndKeys( pcl::PointCloud<Surfel> & _scan_down );
-    std::pair<int, float> detectLoopClosureID( void ); // int: nearest node index, float: relative yaw  
+    std::pair<int, float> detectLoopClosureID( void ); // int: nearest node index, float: relative yaw
+    bool popBack();
 
 public:
     // hyper parameters ()

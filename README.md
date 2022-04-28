@@ -1,4 +1,4 @@
-# Semantic Mapping
+# Semantic Mapping based on ROS
 
 This repository contains the completeation of semantic mapping based on ros.
 
@@ -18,7 +18,7 @@ Developed by Tongda Yang.
 - [ ] map update method
 - [ ] semantic information usage
 - [ ] submap
-- [ ] problem ocurr in normal estimation and update
+- [x] problem ocurr in normal estimation and update
 
 ## System dependencies:
 
@@ -61,12 +61,14 @@ For more details about building and using rangenet_lib you could find in [rangen
 #### Build smros
 For the first setup of your workspace containing this project, you need:
   ```bash
-catkin make
+catkin_make
   ```
 
 ## Code structure
 
 The full implementation of semantic mapping is in **SumaSLAM** Class.
+
+We use **VertexMap** Class to transform **PointXYZI** to **Surfel** based point cloud type.
 
 The input point cloud will pass to pre-processing to filter and transform to **Surfel** based point cloud type. The filtering includes several step:
 
@@ -82,7 +84,7 @@ We use **SurfelMap** class to store the representation of our map. we store the 
 
 We first render the active map as the target of ndt. Then we use voxel filter to filter the input point cloud. The leaf size is 0.1, 0.1, 0.1. We set the initial pose as last timestamp pose to compute the pose of this timestamp. 
 
-Next, we create a new point cloud to store the points from this frame. We also generate the scan context and store in **SCManager** which is scan context class. For each new pose, we compute the pose transfer from last pose as: p<sub>m</sub>  =  p<sub>t - 1</sub><sup>-1</sup>  * p<sub>t</sub>. Then we add edge to factor graph using **addEdge()** method in **Optimization** class which is the class of storing factor graph and computing optimising based on **gtsam**.
+Next, we create a new point cloud to store the points from this frame. We also generate the scan context and store in **SCManager** which is scan context class. For each new pose, we compute the pose transfer from last pose as: p<sub>m</sub>  =  p<sub>t - 1</sub><sup>-1</sup>  * p<sub>t</sub>. Then we add edge to factor graph using **addEdge()** method in **BackEndOpt** class which is the class of storing factor graph and computing optimising based on **gtsam**.
 
 We find loopsure from pass frame. If successful, we compute the transfer from current frame to matching frame and add loopsure edge in factor graph. If the loopsure appears in the follow n frames, we optimise our all pose using **optimize(int num_iters)** method.
 

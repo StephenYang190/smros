@@ -63,7 +63,7 @@ namespace pclomp
 	  * PhD thesis, Orebro University. Orebro Studies in Technology 36.</b>,
 	  * <b>More, J., and Thuente, D. (1994). Line Search Algorithm with Guaranteed Sufficient Decrease
 	  * In ACM Transactions on Mathematical Software.</b> and
-	  * Sun, W. and Yuan, Y, (2006) Optimization Theory and Methods: Nonlinear Programming. 89-100
+	  * Sun, W. and Yuan, Y, (2006) BackEndOpt Theory and Methods: Nonlinear Programming. 89-100
 	  * \note Math refactored by Todor Stoyanov.
 	  * \author Brian Okorn (Space and Naval Warfare Systems Center Pacific)
 	  */
@@ -401,7 +401,7 @@ namespace pclomp
 		  * \note Trial Value Selection [More, Thuente 1994], \f$ \psi(\alpha_k) \f$ is used for \f$ f_k \f$ and \f$ g_k \f$
 		  * until some value satisfies the test \f$ \psi(\alpha_k) \leq 0 \f$ and \f$ \phi'(\alpha_k) \geq 0 \f$
 		  * then \f$ \phi(\alpha_k) \f$ is used from then on.
-		  * \note Interpolation Minimizer equations from Optimization Theory and Methods: Nonlinear Programming By Wenyu Sun, Ya-xiang Yuan (89-100).
+		  * \note Interpolation Minimizer equations from BackEndOpt Theory and Methods: Nonlinear Programming By Wenyu Sun, Ya-xiang Yuan (89-100).
 		  * \param[in] a_l first endpoint of interval \f$ I \f$, \f$ \alpha_l \f$ in Moore-Thuente (1994)
 		  * \param[in] f_l value at first endpoint, \f$ f_l \f$ in Moore-Thuente (1994)
 		  * \param[in] g_l derivative at first endpoint, \f$ g_l \f$ in Moore-Thuente (1994)

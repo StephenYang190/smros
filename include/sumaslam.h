@@ -63,18 +63,23 @@ protected:
     bool mapUpdate();
     // loopsure detection
     bool loopsureDetection();
+    bool loopsureDetection(bool od_loopsure);
     // pre-process point clouds(transform to surfel based point clouds)
     bool preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // odometry(ndt omp)
     bool odometry();
     // function used to compute pose
-    pose_type computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_points,
-                          std::shared_ptr<pcl::PointCloud<Surfel>> target_points,
+    pose_type computePose(pcl::PointCloud<Surfel>::Ptr input_points,
+                          pcl::PointCloud<Surfel>::Ptr target_points,
                           pose_type& initial_pose);
     // function to pose global map to ros node
     void publicMap();
     // function to demonstrate map construction
     void brocastMap(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
+    // function of voxel filter
+    void filterPointCloud(const pcl::PointCloud<Surfel>::Ptr input,
+                          pcl::PointCloud<Surfel>::Ptr output,
+                          const double leafsize = 0.1);
 public:
     SumaSLAM();
     void init();
@@ -84,7 +89,7 @@ public:
     // operate a step
     bool step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi);
     // generate global map
-    bool generateMap(std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> point_cloud);
+    bool generateMap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
     bool readFromFile();
     bool readPose();
     // debug

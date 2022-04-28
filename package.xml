@@ -55,11 +55,11 @@
 
   <!--  my build dependence-->
   <build_depend>rangenet_lib</build_depend>
+  <build_depend>smros_msgs</build_depend>
 
   <!--  my exec dependence-->
   <exec_depend>rangenet_lib</exec_depend>
-
-
+  <exec_depend>smros_msgs</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

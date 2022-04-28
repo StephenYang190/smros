@@ -27,10 +27,7 @@ SumaSLAM::SumaSLAM() :
     nh_.getParam("pcd_in_path", pcd_in_path_);
     nh_.getParam("pcd_out_path", pcd_out_path_);
     // get sequence
-    int se = 0;
-    nh_.getParam("sequence", se);
-    sequence_ += int(se / 10) + '0';
-    sequence_ += int(se % 10) + '0';
+    nh_.getParam("sequence", sequence_);
     // generate suffix
     suffix_ = "";
     if(isloop_)
@@ -71,7 +68,7 @@ bool SumaSLAM::preprocess(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     // set point clouds
     current_frame_->setPointCloud(point_clouds_xyzi.makeShared());
     // get point clouds in surfel base
-    std::shared_ptr<pcl::PointCloud<Surfel>> point_clouds_surfel = current_frame_->getPointCloudsPtr();
+    pcl::PointCloud<Surfel>::Ptr point_clouds_surfel = current_frame_->getPointCloudsPtr();
 
     int num_points = current_frame_->getPointNum();
     // store pointcloud in vector type
@@ -143,21 +140,23 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
     if(crt_id_ == 0)
     {
         mapUpdate();
-        loopsureDetection();
+        loopsureDetection(true);
     }
     else
     {
-        if(odometry() || !iskey_)
+        bool od_loopsure = odometry();
+        bool sc_loopsure = false;
+        if(isloop_)
+        {
+            sc_loopsure = loopsureDetection(od_loopsure);
+        }
+
+        if(od_loopsure || sc_loopsure || !iskey_)
         {
             mapUpdate();
-            if(isloop_)
-            {
-                loopsureDetection();
-            }
         }
 //        mapUpdate();
     }
-
     timestamp_->nextTime();
     return true;
 }
@@ -165,6 +164,9 @@ bool SumaSLAM::step(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_xyzi) {
 bool SumaSLAM::odometry() {
     map_->generateActiveMap();
     pose_type init_pose = map_->getLastPose();
+//    crt_pose_ = computePose(current_points_filtered_,
+//                            last_points_filtered_,
+//                            init_pose);
     crt_pose_ = computePose(current_frame_->getPointCloudsPtr(),
                             map_->getActiveMapPtr()->getPointCloudsPtr(),
                             init_pose);
@@ -178,9 +180,24 @@ bool SumaSLAM::odometry() {
     }
     distance = sqrt(distance);
     // rotation angle
-    Eigen::Quaternionf q(crt_pose_.block<3, 3>(0 , 0));
-    float angle_change = q.x() + q.y() + q.z();
-    angle_change = abs(angle_change);
+    Eigen::Matrix3f rotation = crt_pose_.block<3, 3>(0, 0);
+//    Eigen::Vector3f eulerangle = rotation.eulerAngles(0, 1, 2);
+//    for(int i = 0; i < 3; i++)
+//    {
+//        std::cout << "axis angle : " << eulerangle[i] / M_PI * 180 << std::endl;
+//    }
+//    float angle_change = eulerangle[2] + M_PI;
+//    angle_change = angle_change / M_PI * 180;
+//    if(angle_change > 260 || angle_change < 90)
+//    {
+//        return false;
+//    }
+//    Eigen::Quaternionf q(rotation);
+//    std::cout << "x angle : " << q.x() << std::endl;
+//    std::cout << "y angle : " << q.y() << std::endl;
+//    std::cout << "z angle : " << q.z() << std::endl;
+    float angle_change = 1;
+
     std::cout << "distance between two frames is : " << distance;
     std::cout << ", and angle is : " << angle_change << std::endl;
     if(distance < max_distance_ && angle_change < max_angle_)
@@ -191,65 +208,51 @@ bool SumaSLAM::odometry() {
     return true;
 }
 
-bool SumaSLAM::generateMap(std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> point_cloud)
+bool SumaSLAM::generateMap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud)
 {
     if(map_->generateMap(point_cloud))
         return true;
     return false;
 }
 
-bool SumaSLAM::loopsureDetection() {
-    std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud = current_frame_->getPointCloudsPtr();
-    scManager_.makeAndSaveScancontextAndKeys(*pointcloud);
-    auto pair_result = scManager_.detectLoopClosureID();
-    int pre_index = pair_result.first;
-    if( pre_index == -1 || pre_index > crt_id_ ) {
-        return false;
-    }
-
-    std::shared_ptr<pcl::PointCloud<Surfel>> pre_point_clouds = map_->getPointCloudsInLocal(pre_index);
-    std::shared_ptr<pcl::PointCloud<Surfel>> crt_point_clouds = map_->getPointCloudsInLocal(crt_id_);
-    pose_type initial_pose;
-    initial_pose << 1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1;
-    std::cout << "start compute loopsure pose" << std::endl;
-    pose_type res_pose = computePose(crt_point_clouds, pre_point_clouds, initial_pose);
-    std::cout << "end compute loopsure pose" << std::endl;
-    bool result = map_->setLoopsureEdge(crt_id_, pre_index, res_pose);
-    std::cout << "end add loopsure edge" << std::endl;
-    return true;
-}
+//bool SumaSLAM::loopsureDetection() {
+//    pcl::PointCloud<Surfel>::Ptr pointcloud = current_frame_->getPointCloudsPtr();
+//    scManager_.makeAndSaveScancontextAndKeys(*pointcloud);
+//    auto pair_result = scManager_.detectLoopClosureID();
+//    int pre_index = pair_result.first;
+//    if( pre_index == -1 || pre_index > crt_id_ ) {
+//        return false;
+//    }
+//
+//    pcl::PointCloud<Surfel>::Ptr pre_point_clouds = map_->getPointCloudsInLocal(pre_index);
+//    pcl::PointCloud<Surfel>::Ptr crt_point_clouds = map_->getPointCloudsInLocal(crt_id_);
+//    pose_type initial_pose;
+//    initial_pose << 1, 0, 0, 0,
+//            0, 1, 0, 0,
+//            0, 0, 1, 0,
+//            0, 0, 0, 1;
+//    std::cout << "start compute loopsure pose" << std::endl;
+//    pose_type res_pose = computePose(current_points_filtered_, pre_point_clouds, initial_pose);
+//    std::cout << "end compute loopsure pose" << std::endl;
+//    bool result = map_->setLoopsureEdge(crt_id_, pre_index, res_pose);
+//    std::cout << "end add loopsure edge" << std::endl;
+//    return true;
+//}
 
 bool SumaSLAM::mapUpdate() {
     map_->updateMap(current_frame_, crt_pose_);
     return false;
 }
 
-pose_type SumaSLAM::computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_points,
-                                std::shared_ptr<pcl::PointCloud<Surfel>> target_points, pose_type& initial_pose) {
-    pcl::PointCloud<Surfel> filtered_cloud;
-    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
-    approximate_voxel_filter.setLeafSize (0.1, 0.1, 0.1);
-    approximate_voxel_filter.setInputCloud (input_points->makeShared());
-    approximate_voxel_filter.filter (filtered_cloud);
+pose_type SumaSLAM::computePose(pcl::PointCloud<Surfel>::Ptr input_points,
+                                pcl::PointCloud<Surfel>::Ptr target_points,
+                                pose_type& initial_pose) {
 
     pclomp::NormalDistributionsTransform<Surfel, Surfel> ndt;
-
-    ndt.setTransformationEpsilon (0.01);
-    // Setting maximum step size for More-Thuente line search.
-    ndt.setStepSize (0.1);
-    //Setting Resolution of NDT grid structure (VoxelGridCovariance).
-    ndt.setResolution (1.0);
-
-    // Setting max number of registration iterations.
-    ndt.setMaximumIterations (35);
-
     // Setting point cloud to be aligned.
-    ndt.setInputSource (filtered_cloud.makeShared());
+    ndt.setInputSource (input_points);
     // Setting point cloud to be aligned to.
-    ndt.setInputTarget (target_points->makeShared());
+    ndt.setInputTarget (target_points);
 
     // Calculating required rigid transform to align the input cloud to the target cloud.
     ndt.align (odometry_result_, initial_pose);
@@ -260,7 +263,7 @@ pose_type SumaSLAM::computePose(std::shared_ptr<pcl::PointCloud<Surfel>> input_p
 void SumaSLAM::publicMap()
 {
     // generate global map
-    std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> global_map = std::make_shared<pcl::PointCloud<pcl::PointXYZRGB>>();
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr global_map(new pcl::PointCloud<pcl::PointXYZRGB>());
     generateMap(global_map);
     // broadcast point numbers
     for(int i = 0; i < 10; i++)
@@ -268,7 +271,7 @@ void SumaSLAM::publicMap()
         std::cout << "*\t";
     }
     std::cout << std::endl;
-    std::cout << "render map. Map have: " << global_map->size() << std::endl;
+    std::cout << "render map. SemanticMap have: " << global_map->size() << std::endl;
     for(int i = 0; i < 10; i++)
     {
         std::cout << "*\t";
@@ -277,7 +280,7 @@ void SumaSLAM::publicMap()
     // voxel filter
     pcl::ApproximateVoxelGrid<pcl::PointXYZRGB> approximate_voxel_filter;
     approximate_voxel_filter.setLeafSize(0.5, 0.5, 0.5);
-    approximate_voxel_filter.setInputCloud(global_map->makeShared());
+    approximate_voxel_filter.setInputCloud(global_map);
     approximate_voxel_filter.filter(*global_map);
     // save point cloud
 //    pcl::io::savePCDFile(pcd_out_path_, *global_map);
@@ -292,14 +295,6 @@ void SumaSLAM::publicMap()
     pcl::toROSMsg(*global_map, msg);
     msg.header.frame_id = "velodyne";
     pub.publish(msg);
-
-//    std::shared_ptr<pcl::PointCloud<Surfel>> active_points;
-//    map_->generateActiveMap();
-//    active_points = map_->getActiveMapPtr()->getPointCloudsPtr();
-//    sensor_msgs::PointCloud2 msg1;
-//    pcl::toROSMsg(*active_points, msg);
-//    msg.header.frame_id = "velodyne";
-//    pub1.publish(msg);
 }
 
 void read_filelists(const std::string& dir_path,std::vector<std::string>& out_filelsits,std::string type)
@@ -387,14 +382,9 @@ bool SumaSLAM::readFromFile() {
 
 void SumaSLAM::testLoopsure() {
     std::string inpath, outpath;
-    if(nh_.getParam("pcdpath", inpath))
-    {
-
-    }
-    if(nh_.getParam("loop_result", outpath))
-    {
-
-    }
+    nh_.getParam("pcdpath", inpath);
+    nh_.getParam("loop_result", outpath);
+    // get pcd data in the files
     std::vector<std::string> out_filelsits;
     read_filelists(inpath, out_filelsits, "pcd");
     sort_filelists(out_filelsits, "pcd");
@@ -444,4 +434,38 @@ void SumaSLAM::brocastMap(const pcl::PointCloud<pcl::PointXYZI> & point_clouds_x
     pub3.publish(msg2);
     // public global map
     publicMap();
+}
+
+bool SumaSLAM::loopsureDetection(bool od_loopsure) {
+    pcl::PointCloud<Surfel>::Ptr crt_point_clouds = current_frame_->getPointCloudsPtr();
+
+    scManager_.makeAndSaveScancontextAndKeys(*crt_point_clouds);
+    auto pair_result = scManager_.detectLoopClosureID();
+    int pre_index = pair_result.first;
+    if( pre_index == -1 || pre_index > crt_id_ ) {
+        if(!od_loopsure)
+        {
+            scManager_.popBack();
+        }
+        return false;
+    }
+    // get previous point cloud
+    pcl::PointCloud<Surfel>::Ptr pre_point_clouds = map_->getPointCloudsInLocal(pre_index);
+    // set initial_pose
+    pose_type init_pose = pose_type::Identity();
+    std::cout << "start compute loopsure pose" << std::endl;
+    pose_type res_pose = computePose(current_frame_->getPointCloudsPtr(), pre_point_clouds, init_pose);
+    std::cout << "end compute loopsure pose" << std::endl;
+    map_->setLoopsureEdge(crt_id_, pre_index, res_pose);
+    std::cout << "end add loopsure edge" << std::endl;
+    return true;
+}
+
+void SumaSLAM::filterPointCloud(const pcl::PointCloud<Surfel>::Ptr input,
+                                pcl::PointCloud<Surfel>::Ptr output,
+                                const double leafsize) {
+    pcl::ApproximateVoxelGrid<Surfel> voxel_filter;
+    voxel_filter.setLeafSize (leafsize, leafsize, leafsize);
+    voxel_filter.setInputCloud (input);
+    voxel_filter.filter (*output);
 }

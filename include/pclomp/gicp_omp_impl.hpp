@@ -494,7 +494,7 @@ pclomp::GeneralizedIterativeClosestPoint<PointSource, PointTarget>::computeTrans
     }
     catch (pcl::PCLException &e)
     {
-      PCL_DEBUG ("[pcl::%s::computeTransformation] Optimization issue %s\n", getClassName ().c_str (), e.what ());
+      PCL_DEBUG ("[pcl::%s::computeTransformation] BackEndOpt issue %s\n", getClassName ().c_str (), e.what ());
       break;
     }
     nr_iterations_++;

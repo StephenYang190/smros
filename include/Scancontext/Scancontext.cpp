@@ -339,3 +339,12 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
 } // SCManager::detectLoopClosureID
 
 // } // namespace SC2
+
+bool SCManager::popBack() {
+    polarcontexts_.pop_back();
+    polarcontext_invkeys_.pop_back();
+    polarcontext_vkeys_.pop_back();
+    polarcontext_invkeys_mat_.pop_back();
+
+    return true;
+}

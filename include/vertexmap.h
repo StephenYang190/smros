@@ -28,14 +28,18 @@ protected:
     int height_, width_;
     // fov up and down for the range of interesting(ROI)
     float fov_up_, fov_down_, fov_;
+    // point range constriction
+    int max_distance_;
+    // point a line have
+    int linenum;
     // point clouds
-    std::shared_ptr<pcl::PointCloud<Surfel>> pointclouds_;
+    pcl::PointCloud<Surfel>::Ptr pointclouds_;
     // ros nodehandle
     ros::NodeHandle nh_;
 public:
     VertexMapBase();
     virtual ~VertexMapBase(){}
-    std::shared_ptr<pcl::PointCloud<Surfel>> getPointCloudsPtr() {return pointclouds_;}
+    pcl::PointCloud<Surfel>::Ptr getPointCloudsPtr();
     bool computeUVIndex(int point_index, int& u, int& v, float& r_xyz);
 };
 

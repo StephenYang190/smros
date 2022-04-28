@@ -1,8 +1,10 @@
 # Vertex parameters
-width : 1024
+width : 1000
 height : 64
-fov_up : 5.0
-fov_down : -15.0
+fov_up : 2.0
+fov_down : -24.0
+max_distance : 50
+line : 100
 
 # SurfelMap parameters
 p_stable : 0.6
@@ -19,8 +21,8 @@ time_gap : 2
 inactive_time : 100
 od_dis : 0.5
 skip_gap : 0
-loop_thred : 10
-max_distance_gap : 0.5
+detection_treshold : 10
+max_distance_gap : 1
 max_angle_gap : 0.01
 is_loop_detection : true
 is_remove_vehicle : true
@@ -29,7 +31,7 @@ is_key_selection : true
 
 # data path
 pcd_in_path : /home/tongda/workspace/semantic_map/dataset/pcd_data/
-sequence : 08
+sequence : "07"
 
 # Render setting
 render_gap : 500
@@ -38,6 +40,6 @@ render_gap : 500
 model_path : /home/tongda/workspace/smros_ws/src/rangenet_lib/darknet53
 
 # Saving path
-pose_path : /home/tongda/workspace/smros_ws/src/smros/result/pose_result/
+pose_out_path : /home/tongda/workspace/smros_ws/src/smros/result/pose_result/
 pcd_out_path : /home/tongda/workspace/smros_ws/src/smros/result/pcd_result/
 loop_result : /home/tongda/workspace/semantic_map/loop_result.txt

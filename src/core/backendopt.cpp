@@ -6,28 +6,43 @@
 
 using namespace gtsam;
 
-Optimization::Optimization() :
+BackEndOpt::BackEndOpt() :
     pose_graph_(),
     initials_(),
     results_()
 {
+    auto& diag = info_.diagonal();
+    // translational noise is smaller than ro tational noise.
+    double transNoise = 1.0;
+    double rotNoise = 1.0;
+    diag[0] = (transNoise * transNoise);
+    diag[1] = (transNoise * transNoise);
+    diag[2] = (transNoise * transNoise);
 
+    diag[3] = (rotNoise * rotNoise);
+    diag[4] = (rotNoise * rotNoise);
+    diag[5] = (rotNoise * rotNoise);
 }
 
-Optimization::~Optimization() {
-
-}
-
-bool Optimization::addEdge(int from, int to, const Eigen::Matrix4d &measurement,
-                           const Eigen::Matrix<double, 6, 6>& information) {
+bool BackEndOpt::addEdge(int from, int to, const Eigen::Matrix4d &measurement,
+                         const Eigen::Matrix<double, 6, 6>& information) {
+    std::cout << information(0, 1) << std::endl;
     auto odometry_model = noiseModel::Gaussian::Information(information);
 
-    NonlinearFactor::shared_ptr  factor(new BetweenFactor<Pose3>(from, to, Pose3(measurement), odometry_model));
+    NonlinearFactor::shared_ptr factor(new BetweenFactor<Pose3>(from, to, Pose3(measurement), odometry_model));
     pose_graph_.add(factor);
     return false;
 }
 
-bool Optimization::setInitialValues(int id, const Eigen::Matrix4d& initial_estimate) {
+bool BackEndOpt::addEdge(int from, int to, const Eigen::Matrix4d &measurement) {
+    auto odometry_model = noiseModel::Gaussian::Information(info_);
+
+    NonlinearFactor::shared_ptr factor(new BetweenFactor<Pose3>(from, to, Pose3(measurement), odometry_model));
+    pose_graph_.add(factor);
+    return false;
+}
+
+bool BackEndOpt::setInitialValues(int id, const Eigen::Matrix4d& initial_estimate) {
     bool addPrior = initials_.empty();
 
     if (!initials_.exists(id))
@@ -50,7 +65,7 @@ bool Optimization::setInitialValues(int id, const Eigen::Matrix4d& initial_estim
     return false;
 }
 
-bool Optimization::optimize(int num_iters) {
+bool BackEndOpt::optimize(int num_iters) {
     LevenbergMarquardtParams params;
     params.maxIterations = num_iters;
     params.setVerbosity("TERMINATION");  // this will show info about stopping conditions
@@ -61,7 +76,7 @@ bool Optimization::optimize(int num_iters) {
     return true;
 }
 
-bool Optimization::updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &pose) {
+bool BackEndOpt::updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &pose) {
     for (const auto& pair : results_) {
         if (pair.key >= pose.size()) continue;
 
@@ -71,71 +86,6 @@ bool Optimization::updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_alloc
     return false;
 }
 
-BackEndOpt::BackEndOpt() {
-    nh_.getParam("inactive_time",inactive_);
-    nh_.getParam("od_dis",max_dis_);
-}
+BackEndOpt::~BackEndOpt() {
 
-std::pair<int, int> BackEndOpt::detectLoopClosure(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud, Eigen::Matrix4f& pose) {
-    // scan context loop closure detection
-    auto scpair = scDetection(pointcloud);
-    // odometry loop closure detection
-    auto odpair = odDetection(pose);
-    // have sc result
-    if(scpair.first != -1) return scpair;
-    // have od result
-    if(odpair.first != -1) return odpair;
-
-    return scpair;
-}
-
-std::pair<int, int> BackEndOpt::scDetection(std::shared_ptr<pcl::PointCloud<Surfel>> pointcloud)
-{
-    std::pair<int, int> result;
-    scManager_.makeAndSaveScancontextAndKeys(*pointcloud);
-    auto pair_result = scManager_.detectLoopClosureID();
-    result.first = pair_result.first;
-    result.second = position_s_.size();
-
-    return result;
-}
-
-std::pair<int, int> BackEndOpt::odDetection(Eigen::Matrix4f& pose)
-{
-    std::pair<int, int> result;
-    Eigen::Vector3f now_position;
-    now_position << pose(0,3), pose(1,3), pose(2,3);
-
-    int min_distance = 0;
-    int min_index = -1;
-    for(int i = 0; i < position_s_.size() - inactive_; i++)
-    {
-        Eigen::Vector3f dis = now_position - position_s_[i];
-        float distance = dis.norm();
-        if(distance > max_dis_) continue;
-        if(min_index == -1 || min_distance > distance)
-        {
-            min_index = i;
-            min_distance = distance;
-        }
-    }
-
-    result.first = min_index;
-    result.second = position_s_.size();
-
-    position_s_.push_back(now_position);
-
-    return result;
-}
-
-bool BackEndOpt::setInitialValues(int id, const Eigen::Matrix4d &initial_estimate) {
-    pose_graph_.setInitialValues(id, initial_estimate);
-    return true;
-}
-
-bool BackEndOpt::addEdge(int from, int to,
-                         const Eigen::Matrix4d &measurement,
-                         const Eigen::Matrix<double, 6, 6> &information) {
-    pose_graph_.addEdge(from, to, measurement, information);
-    return true;
 }

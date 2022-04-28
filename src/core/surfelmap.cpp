@@ -54,6 +54,8 @@ SurfelMap::SurfelMap()
 }
 
 bool SurfelMap::pushBackPose(pose_type& pose) {
+    path_s.header.frame_id = "velodyne";
+    path_s.header.stamp = ros::Time::now();
     // save local speed
     local_poses_.push_back(pose);
     // compute and save global pose
@@ -74,6 +76,17 @@ bool SurfelMap::pushBackPose(pose_type& pose) {
     {
         pose_graph_.addEdge(timestamp_ - 1, timestamp_, pose.cast<double>(), info_);
     }
+
+    geometry_msgs::PoseStamped pose_tmp;
+
+    pose_tmp.header.frame_id = "velodyne";
+    pose_tmp.header.stamp = ros::Time::now();
+    pose_tmp.pose.position.x = global_pose(0, 3);
+    pose_tmp.pose.position.y = global_pose(1, 3);
+    pose_tmp.pose.position.z = global_pose(2, 3);
+
+    path_s.poses.push_back(pose_tmp);
+    pub_.publish(path_s);
     return true;
 }
 
@@ -113,7 +126,7 @@ bool SurfelMap::generateMap(pcl::PointCloud<Surfel> & global_map)
     return true;
 }
 
-bool SurfelMap::generateMap(std::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> global_map)
+bool SurfelMap::generateMap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr global_map)
 {
     if (surfel_map_.empty())
     {
@@ -151,9 +164,9 @@ bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame, pose_type cr
     // save pose
     pushBackPose(crt_pose);
     // create a new timestamp surfel
-    std::shared_ptr<pcl::PointCloud<Surfel>> new_time_clouds = std::make_shared<pcl::PointCloud<Surfel>>();
+    pcl::PointCloud<Surfel>::Ptr new_time_clouds(new pcl::PointCloud<Surfel>());
     surfel_map_.push_back(new_time_clouds);
-    std::shared_ptr<pcl::PointCloud<Surfel>> origin_point = current_frame->getPointCloudsPtr();
+    pcl::PointCloud<Surfel>::Ptr origin_point = current_frame->getPointCloudsPtr();
     int num_point = origin_point->size();
     for(int i = 0; i < num_point; i++)
     {
@@ -166,7 +179,7 @@ bool SurfelMap::updateMap(std::shared_ptr<VertexMap> current_frame, pose_type cr
 bool SurfelMap::generateActiveMap()
 {
     int total_frame = surfel_map_.size();
-    std::shared_ptr<pcl::PointCloud<Surfel>> point_in_active_map = active_map_->getPointCloudsPtr();
+    pcl::PointCloud<Surfel>::Ptr point_in_active_map = active_map_->getPointCloudsPtr();
     point_in_active_map->clear();
 
     if (surfel_map_.empty())
@@ -189,7 +202,7 @@ bool SurfelMap::removeUnstableSurfel() {
     for(int i = 0; i < surfel_map_.size(); i++)
     {
         int num_points = surfel_map_[i]->size();
-        std::shared_ptr<pcl::PointCloud<Surfel>> point_clouds = surfel_map_[i];
+        pcl::PointCloud<Surfel>::Ptr point_clouds = surfel_map_[i];
         for(int i_2 = 0; i_2 < num_points; i_2++)
         {
             if(point_clouds->points[i_2].confidence < confidence_thred_)
@@ -203,14 +216,14 @@ bool SurfelMap::removeUnstableSurfel() {
     return false;
 }
 
-std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInLocal(int id)
+pcl::PointCloud<Surfel>::Ptr SurfelMap::getPointCloudsInLocal(int id)
 {
     return surfel_map_[id];
 }
 
-std::shared_ptr<pcl::PointCloud<Surfel>> SurfelMap::getPointCloudsInGlobal(int id)
+pcl::PointCloud<Surfel>::Ptr SurfelMap::getPointCloudsInGlobal(int id)
 {
-    std::shared_ptr<pcl::PointCloud<Surfel>> transform_result = std::make_shared<pcl::PointCloud<Surfel>>();
+    pcl::PointCloud<Surfel>::Ptr transform_result(new pcl::PointCloud<Surfel>());
     pcl::transformPointCloud(*surfel_map_[id], *transform_result, global_poses_[id]);
     return transform_result;
 }
