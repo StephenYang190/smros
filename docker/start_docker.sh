@@ -28,6 +28,7 @@ DOCKER_HOME="/home/$USER"
 function local_volumes() {
     volumes="-v $PROJECT_ROOT_DIR/smros:$WORK_PATH/smros \
              -v $PROJECT_ROOT_DIR/rangenet_lib:$WORK_PATH/rangenet_lib \
+             -v $PROJECT_ROOT_DIR/model:$WORK_PATH/model \
              -v $PROJECT_ROOT_DIR/docker:$WORKDIR/docker \
              -v $PROJECT_ROOT_DIR/scripts:$WORKDIR/scripts \
              -v $HOME/.ssh:$DOCKER_HOME/.ssh \
