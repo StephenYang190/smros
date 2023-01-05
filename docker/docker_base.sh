@@ -10,7 +10,7 @@ function error() {
   (>&2 echo -e "[${RED}ERROR${NO_COLOR}] $*")
 }
 # Base docker image name
-MAIN_IMAGE="smros:v1.0"
+MAIN_IMAGE="smros:v2.0"
 # Container name
 MAIN_CONTAINER_NAME="smros_$USER"
 # Work directory

@@ -29,6 +29,7 @@ function local_volumes() {
     volumes="-v $PROJECT_ROOT_DIR/smros:$WORK_PATH/smros \
              -v $PROJECT_ROOT_DIR/rangenet_lib:$WORK_PATH/rangenet_lib \
              -v $PROJECT_ROOT_DIR/model:$WORK_PATH/model \
+             -v $PROJECT_ROOT_DIR/dataset:$WORK_PATH/dataset \
              -v $PROJECT_ROOT_DIR/docker:$WORKDIR/docker \
              -v $PROJECT_ROOT_DIR/scripts:$WORKDIR/scripts \
              -v $HOME/.ssh:$DOCKER_HOME/.ssh \
@@ -119,10 +120,10 @@ docker exec -u "$USER" "$MAIN_CONTAINER_NAME" \
 docker exec -u "$USER" "$MAIN_CONTAINER_NAME" \
 bash -c 'touch ~/.sudo_as_admin_successful'
 # Download jdk and zsh
-# if [ "$CLION_ROOT_PATH" != "" ] && [ "$CLION_CONFIG_PATH" != "" ]; then
-#       echo "Download jdk and zsh"
-#       docker exec -u "$USER" "$MAIN_CONTAINER_NAME" \
-#             bash -c "$WORKDIR/scripts/setup_environment.sh"
-# fi
+if [ "$CLION_ROOT_PATH" != "" ] && [ "$CLION_CONFIG_PATH" != "" ]; then
+      echo "Download jdk and zsh"
+      docker exec -u "$USER" "$MAIN_CONTAINER_NAME" \
+            bash -c "$WORKDIR/scripts/setup_environment.sh"
+fi
 
 ok "Now you can enter into container using: bash docker/into_docker.sh"

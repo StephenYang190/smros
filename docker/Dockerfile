@@ -1,5 +1,7 @@
 FROM nvcr.io/nvidia/tensorrt:22.04-py3
 
+COPY install_gtsam.sh /tmp/
+
 RUN DEBIAN_FRONTEND=noninteractive apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends ca-certificates && \
     sed -i "s@http://.*archive.ubuntu.com@https://mirrors.bfsu.edu.cn@g" /etc/apt/sources.list && \
@@ -32,5 +34,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt update && \
     		numpy \
     		catkin_tools_fetch \
     		empy \
-    		&& \   
+    		&& \
+    bash /tmp/install_gtsam.sh && \
     rm -rf /var/lib/apt/lists/*

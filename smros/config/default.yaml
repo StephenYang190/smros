@@ -30,16 +30,16 @@ is_down_sampling : true
 is_key_selection : true
 
 # data path
-pcd_in_path : /home/tongda/workspace/semantic_map/dataset/pcd_data/
+pcd_in_path : /home/tongdayang/catkin_ws/src/dataset/pcd_dataset/
 sequence : "07"
 
 # Render setting
 render_gap : 500
 
 # Rangenet model path
-model_path : /home/tongda/workspace/smros_ws/src/rangenet_lib/darknet53
+model_path : /home/tongdayang/catkin_ws/src/model/darknet53
 
 # Saving path
-pose_out_path : /home/tongda/workspace/smros_ws/src/smros/result/pose_result/
-pcd_out_path : /home/tongda/workspace/smros_ws/src/smros/result/pcd_result/
-loop_result : /home/tongda/workspace/semantic_map/loop_result.txt
+pose_out_path : /home/tongdayang/catkin_ws/src/smros/result/pose_result/
+pcd_out_path : /home/tongdayang/catkin_ws/src/smros/result/pcd_result/
+loop_result : /home/tongdayang/catkin_ws/loop_result.txt

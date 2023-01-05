@@ -297,11 +297,16 @@ void SumaSLAM::publicMap()
     pub.publish(msg);
 }
 
-void read_filelists(const std::string& dir_path,std::vector<std::string>& out_filelsits,std::string type)
+bool read_filelists(const std::string& dir_path,std::vector<std::string>& out_filelsits,std::string type)
 {
     struct dirent *ptr;
     DIR *dir;
     dir = opendir(dir_path.c_str());
+    if( dir == nullptr )
+    {
+        std::cout<< "dir: " << dir_path << "don't exist. "<< std::endl;
+        return false;
+    }
     out_filelsits.clear();
     while ((ptr = readdir(dir)) != NULL){
         std::string tmp_file = ptr->d_name;
@@ -316,6 +321,7 @@ void read_filelists(const std::string& dir_path,std::vector<std::string>& out_fi
             }
         }
     }
+    return true;
 }
 
 bool computePairNum(std::string pair1,std::string pair2)
