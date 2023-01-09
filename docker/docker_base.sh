@@ -14,4 +14,4 @@ MAIN_IMAGE="smros:v2.0"
 # Container name
 MAIN_CONTAINER_NAME="smros_$USER"
 # Work directory
-WORKDIR="/home/$USER/"
+WORKDIR="/smros_ws"

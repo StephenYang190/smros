@@ -19,7 +19,29 @@ Developed by Tongda Yang.
 - [ ] semantic information usage
 - [ ] submap
 - [x] problem ocurr in normal estimation and update
+- [x] run in docker
 
+## Docker
+You can now run this project by docker. The following will conduct you to run this project in docker.
+
+First, you need to clone this project and build docker image by Dockerfile.
+```bash
+git clone https://github.com/StephenYang190/smros.git
+cd smros/docker
+docker build -t smros:v2.0 .
+```
+After the docker image has been build successfully, you can start the docker container by script.
+```bash
+cd ..
+bash docker/start_docker.sh
+```
+Now, you can go into docker by script and build this project
+```bash
+bash docker/into_docker.sh
+# run this command in docker container
+bash script/initiation.sh
+roslaunch smros lasermap.launch
+```
 ## System dependencies:
 
 ```

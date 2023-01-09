@@ -7,7 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
         pcl_ros
         pcl_conversions
         rangenet_lib
-)
+        smros_msgs
+        )
 find_package(PCL REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Eigen REQUIRED)
@@ -17,30 +18,31 @@ find_package(GTSAM REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core viz)
 
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif ()
 
 catkin_package(
-  INCLUDE_DIRS
+        INCLUDE_DIRS
         include
-  LIBRARIES
+        LIBRARIES
         ndt_omp
-  CATKIN_DEPENDS
+        CATKIN_DEPENDS
         rangenet_lib
-  DEPENDS
+        DEPENDS
         Boost
 )
 
+
 include_directories(
-# include
-    include
-    ${catkin_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
-    ${CUDA_INCLUDE_DIRS}
-    ${Eigen_INCLUDE_DIRS}
-    ${GTSAM_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
+        # include
+        include
+        ${catkin_INCLUDE_DIRS}
+        ${PCL_INCLUDE_DIRS}
+        ${CUDA_INCLUDE_DIRS}
+        ${Eigen_INCLUDE_DIRS}
+        ${GTSAM_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
 )
 
 add_library(ndt_omp
@@ -52,52 +54,47 @@ add_library(ndt_omp
 add_library(scancontext
         include/Scancontext/Scancontext.cpp)
 
-add_executable(smros
-        src/core/main.cpp
-        src/core/RangenetAPI.cpp
-        src/core/sumaslam.cpp
-        src/core/vertexmap.cpp
-        src/core/surfelmap.cpp
-#        src/core/PointIndex.cpp
-        src/core/backendopt.cpp
-        src/core/timestamp.cpp
-        include/Scancontext/Scancontext.cpp
-        )
-target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${Boost_LIBRARIES} gtsam ${OpenCV_LIBRARIES})
-
-#add_executable(lasereader
-#        src/rosnode/lasereader.cpp
-#        src/core/KittiReader.cpp
-#        )
-#target_link_libraries(lasereader ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-#
-#add_executable(laserprocess
-#        src/rosnode/laserprocess.cpp
-#        src/core/Preprocess.cpp
+#add_executable(smros
+#        src/core/main.cpp
 #        src/core/RangenetAPI.cpp
+#        src/core/sumaslam.cpp
 #        src/core/vertexmap.cpp
-#        )
-#target_link_libraries(laserprocess ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-#
-#add_executable(laserodometry
-#        src/rosnode/laserodometry.cpp
-#        src/core/Odometry.cpp
+#        src/core/surfelmap.cpp
+##        src/core/PointIndex.cpp
 #        src/core/backendopt.cpp
-#        )
-#target_link_libraries(laserodometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
-#
-#add_executable(laserloop
-#        src/rosnode/laserloop.cpp
-#        src/core/LoopClosureDetection.cpp
+#        src/core/timestamp.cpp
 #        include/Scancontext/Scancontext.cpp
 #        )
-#target_link_libraries(laserloop ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-#add_dependencies(laserloop ${catkin_EXPORTED_TARGETS})
-#
-#add_executable(lasermap
-#        src/rosnode/lasermap.cpp
-#        src/core/SemanticMap.cpp
-#        src/core/backendopt.cpp
-#        )
-#target_link_libraries(lasermap ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
-#add_dependencies(lasermap ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${Boost_LIBRARIES} gtsam ${OpenCV_LIBRARIES})
+
+add_executable(kittireader
+        src/kittireader.cpp
+        )
+target_link_libraries(kittireader ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(perception
+        src/perception.cpp
+        src/core/RangenetAPI.cpp
+        src/core/vertexmap.cpp
+        )
+target_link_libraries(perception ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(odometry
+        src/odometry.cpp
+        src/core/backendopt.cpp
+        )
+target_link_libraries(odometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+
+add_executable(laserloop
+        src/loopclosuredetection.cpp
+        include/Scancontext/Scancontext.cpp
+        )
+target_link_libraries(laserloop ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_dependencies(laserloop ${catkin_EXPORTED_TARGETS})
+
+add_executable(semanticmap
+        src/semanticmap.cpp
+        src/core/backendopt.cpp
+        )
+target_link_libraries(semanticmap ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+add_dependencies(semanticmap ${catkin_EXPORTED_TARGETS})

@@ -30,6 +30,7 @@ function local_volumes() {
              -v $PROJECT_ROOT_DIR/rangenet_lib:$WORK_PATH/rangenet_lib \
              -v $PROJECT_ROOT_DIR/model:$WORK_PATH/model \
              -v $PROJECT_ROOT_DIR/dataset:$WORK_PATH/dataset \
+             -v $PROJECT_ROOT_DIR/smros_msgs:$WORK_PATH/smros_msgs \
              -v $PROJECT_ROOT_DIR/docker:$WORKDIR/docker \
              -v $PROJECT_ROOT_DIR/scripts:$WORKDIR/scripts \
              -v $HOME/.ssh:$DOCKER_HOME/.ssh \

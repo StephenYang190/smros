@@ -30,10 +30,10 @@ cp -r /etc/skel/. "/home/${DOCKER_USER}"
 echo "
 genhtml_branch_coverage = 1
 lcov_branch_coverage = 1
-" > "/home/${DOCKER_USER}/.lcovrc"
+" >> "/home/${DOCKER_USER}/.lcovrc"
 echo "
 source /opt/ros/noetic/setup.bash
-" > "/home/${DOCKER_USER}/.bashrc"
+" >> "/home/${DOCKER_USER}/.bashrc"
 
 # Set user files ownership to current user, such as .bashrc, .profile, etc.
 chown "${DOCKER_USER}:${DOCKER_GRP}" "/home/${DOCKER_USER}"
