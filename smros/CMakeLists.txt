@@ -7,7 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
         pcl_ros
         pcl_conversions
         rangenet_lib
-        smros_msgs
+        cv_bridge
+        image_transport
         )
 find_package(PCL REQUIRED)
 find_package(CUDA REQUIRED)
@@ -15,7 +16,7 @@ find_package(Eigen REQUIRED)
 find_package(OpenMP)
 find_package(Boost REQUIRED COMPONENTS filesystem system thread date_time timer chrono serialization)
 find_package(GTSAM REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core viz)
+find_package(OpenCV REQUIRED)
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -24,7 +25,6 @@ endif ()
 
 catkin_package(
         INCLUDE_DIRS
-        include
         LIBRARIES
         ndt_omp
         CATKIN_DEPENDS
@@ -33,10 +33,9 @@ catkin_package(
         Boost
 )
 
-
 include_directories(
         # include
-        include
+        src
         ${catkin_INCLUDE_DIRS}
         ${PCL_INCLUDE_DIRS}
         ${CUDA_INCLUDE_DIRS}
@@ -45,28 +44,6 @@ include_directories(
         ${OpenCV_INCLUDE_DIRS}
 )
 
-add_library(ndt_omp
-        src/pclomp/voxel_grid_covariance_omp.cpp
-        src/pclomp/gicp_omp.cpp
-        src/pclomp/ndt_omp.cpp
-        )
-
-add_library(scancontext
-        include/Scancontext/Scancontext.cpp)
-
-#add_executable(smros
-#        src/core/main.cpp
-#        src/core/RangenetAPI.cpp
-#        src/core/sumaslam.cpp
-#        src/core/vertexmap.cpp
-#        src/core/surfelmap.cpp
-##        src/core/PointIndex.cpp
-#        src/core/backendopt.cpp
-#        src/core/timestamp.cpp
-#        include/Scancontext/Scancontext.cpp
-#        )
-#target_link_libraries(smros ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp ${Boost_LIBRARIES} gtsam ${OpenCV_LIBRARIES})
-
 add_executable(kittireader
         src/kittireader.cpp
         )
@@ -74,27 +51,13 @@ target_link_libraries(kittireader ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(perception
         src/perception.cpp
-        src/core/RangenetAPI.cpp
-        src/core/vertexmap.cpp
+        src/RangenetAPI.cpp
         )
-target_link_libraries(perception ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(perception ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
 
-add_executable(odometry
-        src/odometry.cpp
-        src/core/backendopt.cpp
-        )
-target_link_libraries(odometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
-
-add_executable(laserloop
-        src/loopclosuredetection.cpp
-        include/Scancontext/Scancontext.cpp
-        )
-target_link_libraries(laserloop ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-add_dependencies(laserloop ${catkin_EXPORTED_TARGETS})
-
-add_executable(semanticmap
+add_executable(localization
+        src/backendopt.cpp
+        src/localization.cpp
         src/semanticmap.cpp
-        src/core/backendopt.cpp
-        )
-target_link_libraries(semanticmap ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
-add_dependencies(semanticmap ${catkin_EXPORTED_TARGETS})
+        src/Scancontext/Scancontext.cpp)
+target_link_libraries(localization ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)

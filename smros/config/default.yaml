@@ -1,47 +1,48 @@
 # Work directory
-work_directory : /smros_ws/catkin_ws/src/
+work_directory: /smros_ws/catkin_ws/src/
 # Vertex parameters
-width : 1000
-height : 64
-fov_up : 2.0
-fov_down : -24.0
-max_distance : 50
-line : 100
+width: 900
+height: 64
+fov_up: 2.0
+fov_down: -25.0
+max_distance: 100
+min_distance: 1
+line: 100
 
 # SurfelMap parameters
-p_stable : 0.6
-p_prior : 0.5
-sigma_angle : 1.0
-sigma_distance : 1.0
-angle_thred : 45.0
-distance_thred : 1
-gamma : 0.5
-confidence_threshold : 0.0
+p_stable: 0.6
+p_prior: 0.5
+sigma_angle: 1.0
+sigma_distance: 1.0
+angle_thred: 45.0
+distance_thred: 1
+gamma: 0.5
+confidence_threshold: 0.0
 
 # SumaSLAM parameters
-time_gap : 2
-inactive_time : 100
-od_dis : 0.5
-skip_gap : 0
-detection_treshold : 10
-max_distance_gap : 1
-max_angle_gap : 0.01
-is_loop_detection : true
-is_remove_vehicle : true
-is_down_sampling : true
-is_key_selection : true
+time_gap: 5
+inactive_time: 100
+od_dis: 0.5
+skip_gap: 0
+detection_treshold: 10
+max_distance_gap: 1
+max_angle_gap: 0.01
+is_loop_detection: true
+is_remove_vehicle: true
+is_down_sampling: true
+is_key_selection: true
 
 # data path
-pcd_in_path : dataset/pcd_dataset/
-sequence : "07"
+pcd_in_path: dataset/pcd_dataset/
+sequence: "05"
 
 # Render setting
-render_gap : 500
+render_gap: 500
 
 # Rangenet model path
-model_path : model/darknet53
+model_path: model/darknet53
 
 # Saving path
-pose_out_path : smros/result/pose_result/
-pcd_out_path : smros/result/pcd_result/
-loop_result : loop_result.txt
+pose_out_path: smros/result/pose_result/
+pcd_out_path: smros/result/pcd_result/
+loop_result: loop_result.txt

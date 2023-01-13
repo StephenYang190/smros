@@ -3,14 +3,14 @@
 //
 
 #include "kittireader.h"
+#include <iostream>
 #include <pcl/io/pcd_io.h>
 #include <pcl_ros/point_cloud.h>
-#include <iostream>
 
-void read_filelists(const std::string& dir_path,
-                    std::vector<std::string>& out_filelsits, std::string type) {
-  struct dirent* ptr;
-  DIR* dir;
+void read_filelists(const std::string &dir_path,
+                    std::vector<std::string> &out_filelsits, std::string type) {
+  struct dirent *ptr;
+  DIR *dir;
   dir = opendir(dir_path.c_str());
   out_filelsits.clear();
   while ((ptr = readdir(dir)) != NULL) {
@@ -35,7 +35,7 @@ bool computePairNum(std::string pair1, std::string pair2) {
   return pair1 < pair2;
 }
 
-void sort_filelists(std::vector<std::string>& filists, std::string type) {
+void sort_filelists(std::vector<std::string> &filists, std::string type) {
   if (filists.empty())
     return;
 
@@ -78,12 +78,14 @@ bool KittiReader::readPointCloud() {
 void KittiReader::run() {
   while (ros::ok()) {
     ros::Rate r(10);
-    readPointCloud();
+    if (!readPointCloud()) {
+      break;
+    }
     r.sleep();
   }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ros::init(argc, argv, "point_reader");
   KittiReader kittireader;
   kittireader.run();

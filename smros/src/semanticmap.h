@@ -7,23 +7,44 @@
 
 #define PCL_NO_PRECOMPILE
 
-#include <mutex>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl_ros/point_cloud.h>
 #include <queue>
 
 #include "backendopt.h"
-#include "smros_msgs/Keyframe.h"
 #include "surfel.h"
 
+using pose_type = Eigen::Matrix4f;
 class SemanticMap {
 public:
   SemanticMap();
-  // add pose to pose list
-  void OdometryCallback(const nav_msgs::Odometry &msg);
-  void PointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
-  void KeyframeCallback(const smros_msgs::Keyframe &msg);
+  ~SemanticMap();
+  // get active map ptr
+  pcl::PointCloud<Surfel>::Ptr getActiveMapPtr();
+  // update map
+  bool updateMap(pcl::PointCloud<Surfel>::Ptr current_frame,
+                 pose_type crt_pose = pose_type::Identity());
+  void saveLocalPose(pose_type crt_pose);
+  // get pose at timestamp
+  pose_type &getLastPose();
+  // generate global map
+  bool generateMap(pcl::PointCloud<Surfel>::Ptr global_map);
+  // get final point cloud index
+  int getCurrentFrameId();
+  // get point clouds at id in local coordination
+  pcl::PointCloud<Surfel>::Ptr getPointCloudsInLocal(int id);
+  pcl::PointCloud<Surfel>::Ptr getUnActiveMapPtr(int id);
+  // set loop edge in factor graph
+  bool setLoopsureEdge(int from, int to, pose_type &pose);
+  // get point clouds at id in global coordination
+  pcl::PointCloud<Surfel>::Ptr getPointCloudsInGlobal(int id);
+  // reset loop times
+  bool resetLoopTimes();
+  // sae pose to file
+  bool savePose2File(std::string suffix);
+  // ros path
+  bool rospath();
 
 protected:
 private:
@@ -32,10 +53,11 @@ private:
       global_poses_;
   std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>>
       local_poses_;
-  std::queue<nav_msgs::Odometry> tmp_local_poses_;
   // store point clouds frame by frame
   std::vector<pcl::PointCloud<Surfel>::Ptr> semantic_map_;
-  std::queue<sensor_msgs::PointCloud2ConstPtr> tmp_point_cloud_;
+  pcl::PointCloud<Surfel>::Ptr active_map_;
+  pcl::PointCloud<Surfel>::Ptr unactive_map_;
+  int time_gap_;
   // ros nodehandle
   ros::NodeHandle nh_;
   std::string work_directory_;
@@ -53,17 +75,9 @@ private:
   // path to save pose
   std::string pose_out_path_;
   // timestamp
-  int timestamp_;
+  int current_frame_id_;
   // navigation path message
   nav_msgs::Path global_path_;
-  // mutex to control multi thread
-  std::mutex global_pose_mutex_;
-  std::mutex tmp_point_cloud_mutex_;
-  std::mutex tmp_pose_mutex_;
-
-  ros::Subscriber point_cloud_sub_;
-  ros::Subscriber odometry_sub_;
-  ros::Subscriber keyframe_sub_;
 };
 
 #endif // SRC_SMTEST_H

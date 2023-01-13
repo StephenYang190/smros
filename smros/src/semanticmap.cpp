@@ -3,8 +3,12 @@
 //
 
 #include "semanticmap.h"
+#include <pcl/common/transforms.h>
+#include <pcl/kdtree/kdtree_flann.h>
 
-SemanticMap::SemanticMap() {
+SemanticMap::SemanticMap()
+    : active_map_(new pcl::PointCloud<Surfel>),
+      unactive_map_(new pcl::PointCloud<Surfel>) {
   // initial vector
   global_poses_.resize(0);
   local_poses_.resize(0);
@@ -29,105 +33,139 @@ SemanticMap::SemanticMap() {
   nh_.getParam("detection_treshold", detect_threshold_);
   nh_.getParam("is_loop_detection", loop_closure_detection_);
   nh_.getParam("pose_out_path", pose_out_path_);
+  nh_.getParam("time_gap", time_gap_);
   pose_out_path_ = work_directory_ + pose_out_path_;
 
-  timestamp_ = 0;
-
-  point_cloud_sub_ =
-      nh_.subscribe("surfel", 1000, &SemanticMap::PointCloudCallback, this);
-  odometry_sub_ =
-      nh_.subscribe("local_pose", 1000, &SemanticMap::OdometryCallback, this);
-  keyframe_sub_ =
-      nh_.subscribe("keyframe_id", 1000, &SemanticMap::KeyframeCallback, this);
+  current_frame_id_ = 0;
 }
 
-void SemanticMap::OdometryCallback(const nav_msgs::Odometry &msg) {
-  tmp_pose_mutex_.lock();
-  tmp_local_poses_.push(msg);
-  tmp_pose_mutex_.unlock();
+SemanticMap::~SemanticMap() {}
+
+pcl::PointCloud<Surfel>::Ptr SemanticMap::getActiveMapPtr() {
+  if (semantic_map_.empty()) {
+    return nullptr;
+  }
+  int total_frame = semantic_map_.size();
+  active_map_->clear();
+  // generate map
+  pose_type last_pose = pose_type::Identity();
+  for (int i = total_frame - 1; i > total_frame - time_gap_ && i > -1; i--) {
+    pcl::PointCloud<Surfel> transform_result;
+    pcl::transformPointCloud(*semantic_map_[i], transform_result, last_pose);
+    *active_map_ += transform_result;
+    last_pose = last_pose * local_poses_[i].inverse();
+  }
+  return active_map_;
+}
+bool SemanticMap::updateMap(pcl::PointCloud<Surfel>::Ptr current_frame,
+                            pose_type crt_pose) {
+  // save pose
+  saveLocalPose(crt_pose);
+  // create a new timestamp surfel
+  pcl::PointCloud<Surfel>::Ptr new_pointcloud(new pcl::PointCloud<Surfel>());
+  int num_point = current_frame->size();
+  if (active_map_->points.size() > 0) {
+    pcl::PointCloud<Surfel> odometry_result;
+    pcl::transformPointCloud(*current_frame, odometry_result, crt_pose);
+    // kdtree to find nearest point
+    pcl::KdTreeFLANN<Surfel> kdtree;
+    kdtree.setInputCloud(active_map_);
+    int K = 1;
+    std::vector<int> pointIdxKNNSearch(K);
+    std::vector<float> pointKNNSquaredDistance(K);
+    for (int i = 0; i < num_point; i++) {
+      if (kdtree.nearestKSearch(odometry_result[i], K, pointIdxKNNSearch,
+                                pointKNNSquaredDistance) > 0) {
+        if (pointKNNSquaredDistance[0] < 0.05 &&
+            active_map_->points[pointIdxKNNSearch[0]].point_type ==
+                current_frame->points[i].point_type) {
+          continue;
+        }
+      }
+      new_pointcloud->push_back(current_frame->points[i]);
+    }
+  } else {
+    for (int i = 0; i < num_point; i++) {
+      new_pointcloud->push_back(current_frame->points[i]);
+    }
+  }
+  semantic_map_.push_back(new_pointcloud);
+  current_frame_id_++;
+
+  return true;
+}
+void SemanticMap::saveLocalPose(pose_type crt_pose) {
+
+  // save local speed
+  local_poses_.push_back(crt_pose);
+  // compute and save global pose
+  pose_type global_pose;
+  if (current_frame_id_ == 0) {
+    global_pose = crt_pose;
+  } else {
+    global_pose = global_poses_[current_frame_id_ - 1] * crt_pose;
+  }
+  // svae global pose
+  global_poses_.push_back(global_pose);
+  // set optional graph node and edge
+  pose_graph_.setInitialValues(current_frame_id_, global_pose.cast<double>());
+  if (current_frame_id_ > 0) {
+    pose_graph_.addEdge(current_frame_id_ - 1, current_frame_id_,
+                        crt_pose.cast<double>(), info_);
+  }
+
+  geometry_msgs::PoseStamped pose_tmp;
+
+  pose_tmp.header.frame_id = "velodyne";
+  pose_tmp.header.stamp = ros::Time::now();
+  pose_tmp.pose.position.x = global_pose(0, 3);
+  pose_tmp.pose.position.y = global_pose(1, 3);
+  pose_tmp.pose.position.z = global_pose(2, 3);
+}
+pose_type &SemanticMap::getLastPose() { return local_poses_.back(); }
+
+bool SemanticMap::generateMap(pcl::PointCloud<Surfel>::Ptr global_map) {
+  if (semantic_map_.empty()) {
+    return false;
+  }
+  pcl::PointCloud<Surfel> transform_result;
+  for (int i = 0; i < semantic_map_.size(); i++) {
+    transform_result.clear();
+    pcl::transformPointCloud(*semantic_map_[i], transform_result,
+                             global_poses_[i]);
+    *global_map += transform_result;
+  }
+  return true;
 }
 
-void SemanticMap::PointCloudCallback(
-    const sensor_msgs::PointCloud2ConstPtr &msg) {
-  tmp_point_cloud_mutex_.lock();
-  tmp_point_cloud_.push(msg);
-  tmp_point_cloud_mutex_.unlock();
+int SemanticMap::getCurrentFrameId() { return current_frame_id_; }
+
+pcl::PointCloud<Surfel>::Ptr SemanticMap::getPointCloudsInLocal(int id) {
+  return semantic_map_[id];
 }
 
-void SemanticMap::KeyframeCallback(const smros_msgs::Keyframe &msg) {
-  int pre_index = msg.pre_id;
-  int crt_index = msg.crt_id;
-  std::cout << "crt: " << crt_index << " timestamp: " << timestamp_
-            << std::endl;
-  // get point cloud
-  pcl::PointCloud<Surfel>::Ptr pointcloud(new pcl::PointCloud<Surfel>);
-  tmp_point_cloud_mutex_.lock();
-  while (!tmp_point_cloud_.empty()) {
-    if (tmp_point_cloud_.front()->header.seq == crt_index) {
-      pcl::fromROSMsg(*tmp_point_cloud_.front(), *pointcloud);
-      tmp_point_cloud_.pop();
-      break;
-    } else if (tmp_point_cloud_.front()->header.seq < crt_index) {
-      tmp_point_cloud_.pop();
-    } else {
-      break;
-    }
+pcl::PointCloud<Surfel>::Ptr SemanticMap::getUnActiveMapPtr(int id) {
+  if (semantic_map_.empty()) {
+    return nullptr;
   }
-  tmp_point_cloud_mutex_.unlock();
-  if (pointcloud && pointcloud->header.seq == crt_index) {
-    semantic_map_.push_back(pointcloud);
+  int total_frame = semantic_map_.size();
+  unactive_map_->clear();
+  // generate map
+  pose_type last_pose = pose_type::Identity();
+  for (int i = id; i > id - time_gap_ && i > -1; i--) {
+    pcl::PointCloud<Surfel> transform_result;
+    pcl::transformPointCloud(*semantic_map_[i], transform_result, last_pose);
+    *unactive_map_ += transform_result;
+    last_pose = last_pose * local_poses_[i].inverse();
   }
-  // get pose
-  nav_msgs::Odometry odometry;
-  tmp_pose_mutex_.lock();
-  while (!tmp_local_poses_.empty()) {
-    odometry = tmp_local_poses_.front();
-    if (odometry.header.seq == crt_index) {
-      tmp_local_poses_.pop();
-      break;
-    } else if (odometry.header.seq < crt_index) {
-      tmp_local_poses_.pop();
-    } else {
-      break;
-    }
-  }
-  tmp_pose_mutex_.unlock();
-  if (odometry.header.seq == crt_index) {
-    Eigen::Matrix4f local_pose = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f global_pose = Eigen::Matrix4f::Identity();
-    // get rotation matrix
-    Eigen::Quaternionf q(
-        odometry.pose.pose.orientation.w, odometry.pose.pose.orientation.x,
-        odometry.pose.pose.orientation.y, odometry.pose.pose.orientation.z);
-    q.normalize();
-    local_pose.block<3, 3>(0, 0) = q.toRotationMatrix();
-    // get t matrix
-    local_pose(0, 3) = odometry.pose.pose.position.x;
-    local_pose(1, 3) = odometry.pose.pose.position.y;
-    local_pose(2, 3) = odometry.pose.pose.position.z;
-    // compute global pose
-    if (timestamp_ > 0) {
-      global_pose = global_poses_[timestamp_ - 1] * local_pose;
-    }
-    // svae global pose
-    global_pose_mutex_.lock();
-    global_poses_.push_back(global_pose);
-    global_pose_mutex_.unlock();
-    // set optional graph node and edge
-    pose_graph_.setInitialValues(timestamp_, global_pose.cast<double>());
-    if (timestamp_ > 0) {
-      pose_graph_.addEdge(timestamp_ - 1, timestamp_,
-                          local_pose.cast<double>());
-    }
-    timestamp_++;
-  }
-  // do not have loop closure
+  return unactive_map_;
 }
 
-int main(int argc, char **argv) {
-  ros::init(argc, argv, "semantic_map");
-  SemanticMap semanticMap;
-  ros::Rate r(10);
-  ros::spin();
-  return 0;
+bool SemanticMap::setLoopsureEdge(int from, int to, pose_type &pose) {
+  // optimise pose
+  pose_graph_.addEdge(from, to, pose.cast<double>(), info_);
+  pose_graph_.optimize(30);
+  pose_graph_.updatePoses(global_poses_);
+
+  return true;
 }
