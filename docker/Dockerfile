@@ -27,6 +27,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt update && \
                 libeigen3-dev \
                 libboost-all-dev \
                 ca-certificates \
+                libgoogle-glog-dev \
+                libgflags-dev \
+                libatlas-base-dev \
+                libsuitesparse-dev \
                 && \
     DEBIAN_FRONTEND=noninteractive pip3 install \
     		catkin_tools \

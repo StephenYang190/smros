@@ -1,0 +1,7 @@
+<launch>
+<rosparam command="load" file="$(find smros)/config/default.yaml" />
+<node name="kittireader" pkg="smros" type="kittireader" output="screen" />
+<node name="perception" pkg="smros" type="perception" output="screen" />
+<!-- <node name="localization" pkg="smros" type="localization" output="screen" /> -->
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_test_config.rviz" output="screen" />
+</launch>
