@@ -64,10 +64,10 @@ bool KittiReader::readPointCloud() {
         pcl::PointCloud<pcl::PointXYZI> pointcloud;
         pcl::io::loadPCDFile<pcl::PointXYZI>(pcd_in_path_ + pcd_name, pointcloud);
 
+        pointcloud.header.frame_id = "velodyne";
+        pointcloud.header.seq = current_index_;
         sensor_msgs::PointCloud2 point_cloud_msg;
         pcl::toROSMsg(pointcloud, point_cloud_msg);
-        point_cloud_msg.header.frame_id = "velodyne";
-        point_cloud_msg.header.seq = current_index_;
         point_cloud_pub_.publish(point_cloud_msg);
 
         current_index_++;

@@ -11,12 +11,12 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include "surfel.h"
+#include "semantic_surfel.h"
 
 struct vertex {
     float radius = 0.0;
     int index = -1;
-    Surfel point;
+    SemanticSurfel point;
 };
 
 class Perception {
@@ -28,7 +28,7 @@ public:
 
 protected:
     // compute the matching between the vertex map and point clouds
-    bool generateVertexMap(std::vector<int> &semantic_result);
+    bool generateVertexMap(std::vector<int> &point_labels);
 
     bool computeUVIndex(int point_index, int &u, int &v, float &r_xyz);
 
@@ -51,7 +51,7 @@ private:
     ros::NodeHandle nh_;
     ros::Publisher surfel_pub_;
     std::string work_directory_;
-    pcl::PointCloud<pcl::PointXYZI>::Ptr in_pointcloud_;
+    pcl::PointCloud<pcl::PointXYZI>::Ptr input_point_cloud_;
     ros::Subscriber point_cloud_sub_;
     // height and width of vertex map
     int height_, width_;
@@ -71,7 +71,7 @@ private:
     float p_;
     image_transport::ImageTransport img_nh_;
     image_transport::Publisher range_image_pub_;
-    int point_number_{0};
+    int output_point_number_{0};
 };
 
 #endif // SRC_PERCEPTION_H

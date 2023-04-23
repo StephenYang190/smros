@@ -41,19 +41,10 @@ public:
         return net->getLabels(semantic_scan, num_points);
     }
 
-    float getColorR() { return r; }
-
-    float getColorB() { return b; }
-
-    float getColorG() { return g; }
-
-    bool setColorMap(int pointcloud_type);
-
     int getLabel(int index);
 
 protected:
     std::unique_ptr<cl::Net> net;
     std::vector<int> label_map_;
-    std::map<uint32_t, semantic_color> color_map_;
     std::uint8_t r, g, b;
 };

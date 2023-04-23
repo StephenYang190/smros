@@ -11,7 +11,7 @@
 const float PI = acos(-1);
 
 Perception::Perception()
-        : in_pointcloud_(new pcl::PointCloud<pcl::PointXYZI>), img_nh_(nh_) {
+        : input_point_cloud_(new pcl::PointCloud<pcl::PointXYZI>), img_nh_(nh_) {
     nh_.getParam("work_directory", work_directory_);
     // init rangenet
     std::string model_path;
@@ -44,22 +44,22 @@ Perception::Perception()
 }
 
 void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
-    pcl::fromROSMsg(msg, *in_pointcloud_);
-    auto num_points = in_pointcloud_->size();
+    pcl::fromROSMsg(msg, *input_point_cloud_);
+    auto num_points = input_point_cloud_->size();
     // store point cloud in vector type
     std::vector<float> points_xyzi_list(num_points * 4);
     // transform point cloud to vector
     for (int i = 0; i < num_points; i++) {
         int iter = i * 4;
-        points_xyzi_list[iter] = in_pointcloud_->points[i].x;
-        points_xyzi_list[iter + 1] = in_pointcloud_->points[i].y;
-        points_xyzi_list[iter + 2] = in_pointcloud_->points[i].z;
-        points_xyzi_list[iter + 3] = in_pointcloud_->points[i].intensity;
+        points_xyzi_list[iter] = input_point_cloud_->points[i].x;
+        points_xyzi_list[iter + 1] = input_point_cloud_->points[i].y;
+        points_xyzi_list[iter + 2] = input_point_cloud_->points[i].z;
+        points_xyzi_list[iter + 3] = input_point_cloud_->points[i].intensity;
     }
     // get semantic result
     std::vector<std::vector<float>> semantic_result =
             net_->infer(points_xyzi_list, num_points);
-    std::vector<int> semantic_label(num_points);
+    std::vector<int> point_labels(num_points);
     for (int i = 0; i < num_points; i++) {
         float prob = 0;
         int label_index = 0;
@@ -69,16 +69,16 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
                 label_index = k;
             }
         }
-        semantic_label[i] = net_->getLabel(label_index);
+        point_labels[i] = net_->getLabel(label_index);
     }
     // generate surfel
-    generateVertexMap(semantic_label);
+    generateVertexMap(point_labels);
     point2Surfel(semantic_result, msg.header.seq);
     generateNormal();
     publishRangeImage();
 
-    pcl::PointCloud<Surfel> out_pointcloud;
-    out_pointcloud.resize(point_number_);
+    pcl::PointCloud<SemanticSurfel> output_point_cloud;
+    output_point_cloud.resize(output_point_number_);
     int i = 0;
     for (int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
@@ -86,26 +86,26 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
             if (vertex_maps_[u][v].index < 0) {
                 continue;
             }
-            out_pointcloud.points[i] = vertex_maps_[u][v].point;
+            output_point_cloud.points[i] = vertex_maps_[u][v].point;
             i++;
         }
     }
+    output_point_cloud.header.frame_id = msg.header.frame_id;
+    output_point_cloud.header.seq = msg.header.seq;
     sensor_msgs::PointCloud2 surfel_msg;
-    pcl::toROSMsg(out_pointcloud, surfel_msg);
-    surfel_msg.header.frame_id = "velodyne";
-    surfel_msg.header.seq = msg.header.seq;
+    pcl::toROSMsg(output_point_cloud, surfel_msg);
 
     surfel_pub_.publish(surfel_msg);
 }
 
-bool Perception::generateVertexMap(std::vector<int> &semantic_result) {
+bool Perception::generateVertexMap(std::vector<int> &point_labels) {
     clearVertexMap();
-    int num_points = in_pointcloud_->size();
+    int num_points = input_point_cloud_->size();
     std::map<int, int> label_numbers;
     std::map<int, bool> label_valid;
     // compute type number
     for (int i = 0; i < num_points; i++) {
-        int label = semantic_result[i];
+        int label = point_labels[i];
         label_numbers[label]++;
     }
     for (auto iter: label_numbers) {
@@ -116,10 +116,10 @@ bool Perception::generateVertexMap(std::vector<int> &semantic_result) {
     int u, v;
     for (int i = 0; i < num_points; i++) {
         // remove moving object
-        if (semantic_result[i] < 40 || semantic_result[i] > 90)
+        if (point_labels[i] < 40 || point_labels[i] > 90)
             continue;
         // skip type with little points
-        int label = semantic_result[i];
+        int label = point_labels[i];
         if (!label_valid[label]) {
             continue;
         }
@@ -132,7 +132,7 @@ bool Perception::generateVertexMap(std::vector<int> &semantic_result) {
         }
         vertex_maps_[u][v].radius = r_xyz;
         vertex_maps_[u][v].index = i;
-        vertex_maps_[u][v].point.point_type = label;
+        vertex_maps_[u][v].point.label = label;
     }
 
     return true;
@@ -141,9 +141,9 @@ bool Perception::generateVertexMap(std::vector<int> &semantic_result) {
 bool Perception::computeUVIndex(int point_index, int &u, int &v, float &r_xyz) {
     float x, y, z;
     float yaw_angle, pitch_angle;
-    x = in_pointcloud_->points[point_index].x;
-    y = in_pointcloud_->points[point_index].y;
-    z = in_pointcloud_->points[point_index].z;
+    x = input_point_cloud_->points[point_index].x;
+    y = input_point_cloud_->points[point_index].y;
+    z = input_point_cloud_->points[point_index].z;
     // compute the distance to zero point
     r_xyz = sqrt(x * x + y * y + z * z);
     // remove point which is to close
@@ -174,9 +174,9 @@ void Perception::clearVertexMap() {
 
 void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
                               int timestamp) {
-    point_number_ = 0;
+    output_point_number_ = 0;
     // construct point
-    std::vector<cv::Vec3b> color_mask = net_->getLabels(semantic_result, in_pointcloud_->size());
+    std::vector<cv::Vec3b> color_mask = net_->getLabels(semantic_result, input_point_cloud_->size());
     for (int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
             // no point fit in this site
@@ -185,15 +185,13 @@ void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
             }
             int index = vertex_maps_[u][v].index;
             auto &point = vertex_maps_[u][v].point;
-            pcl::copyPoint(in_pointcloud_->points[index], point);
+            pcl::copyPoint(input_point_cloud_->points[index], point);
             // set label
-            point.r = color_mask[index][0] / 256.0f;
-            point.g = color_mask[index][1] / 256.0f;
-            point.b = color_mask[index][2] / 256.0f;
-            point.create_timestamp = timestamp;
-            point.update_timestamp = timestamp;
+            point.r = color_mask[index][0];
+            point.g = color_mask[index][1];
+            point.b = color_mask[index][2];
             point.confidence = initial_confidence_;
-            point_number_++;
+            output_point_number_++;
         }
     }
 
@@ -231,17 +229,17 @@ void Perception::generateNormal() {
                 continue;
             }
             // get the point
-            Eigen::Vector3d u1(vertex_maps_[u_index][v].point.x,
+            Eigen::Vector3f u1(vertex_maps_[u_index][v].point.x,
                                vertex_maps_[u_index][v].point.y,
                                vertex_maps_[u_index][v].point.z);
-            Eigen::Vector3d v1(vertex_maps_[u][v_index].point.x,
+            Eigen::Vector3f v1(vertex_maps_[u][v_index].point.x,
                                vertex_maps_[u][v_index].point.y,
                                vertex_maps_[u][v_index].point.z);
-            Eigen::Vector3d point_xyz(vertex_maps_[u][v].point.x,
+            Eigen::Vector3f point_xyz(vertex_maps_[u][v].point.x,
                                       vertex_maps_[u][v].point.y,
                                       vertex_maps_[u][v].point.z);
             // compute normal
-            Eigen::Vector3d normal = (u1 - point_xyz).cross(v1 - point_xyz);
+            Eigen::Vector3f normal = (u1 - point_xyz).cross(v1 - point_xyz);
             normal.normalize();
             // compute radius
             float molecular = sqrt(2.0) * vertex_maps_[u][v].radius * p_;
@@ -249,9 +247,9 @@ void Perception::generateNormal() {
             float denominator = std::min(1.0, std::max(dis, 0.5));
             // set surfel
             vertex_maps_[u][v].point.radius = molecular / denominator;
-            vertex_maps_[u][v].point.nx = normal[0];
-            vertex_maps_[u][v].point.ny = normal[1];
-            vertex_maps_[u][v].point.nz = normal[2];
+            vertex_maps_[u][v].point.normal_x = normal[0];
+            vertex_maps_[u][v].point.normal_y = normal[1];
+            vertex_maps_[u][v].point.normal_z = normal[2];
         }
     }
 }

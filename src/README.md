@@ -1,6 +1,6 @@
 # Semantic Mapping based on ROS
 
-This repository contains the completeation of semantic mapping based on ros.
+This repository contains the completion of semantic mapping based on ros.
 
 Developed by Tongda Yang.
 
@@ -12,15 +12,24 @@ Developed by Tongda Yang.
 - [x] complete map representation
 - [x] complete  odometry(odt-omp)
 - [x] complete map updating
-- [x] complete loopsure detection(scan context)
+- [x] complete loop sure detection(scan context)
 - [x] complete factor graph optimization
 - [x] key frame selection method
 - [ ] map update method
 - [ ] semantic information usage
 - [ ] submap
-- [x] problem ocurr in normal estimation and update
+- [x] problem occur in normal estimation and update
 - [x] run in docker
 
+
+## Following target:
+- [ ] Optimise the performance of nonlinear pose estimation
+- [ ] Replace ndt with nonlinear pose estimation in loop sure detection
+- [ ] Merge semantic information in pose estimation
+- [ ] More accurate normal computing and pose estimation
+- [ ] Map store and updating method
+- [ ] Separate localization and mapping modules
+- [ ] Redefine point type with pcl::XYZRGB
 ## Docker
 You can now run this project by docker. The following will conduct you to run this project in docker.
 

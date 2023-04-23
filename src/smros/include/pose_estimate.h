@@ -12,9 +12,9 @@
 #include <map>
 #include <Eigen/Dense>
 #include <pcl/kdtree/kdtree_flann.h>
-#include "surfel.h"
+#include "semantic_surfel.h"
 
-using pointT = Surfel;
+using pointT = SemanticSurfel;
 
 class NonlinearEstimate {
 public:

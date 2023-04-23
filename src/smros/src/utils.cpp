@@ -12,20 +12,20 @@
 #include "pclomp/voxel_grid_covariance_omp_impl.hpp"
 #include <pcl/filters/approximate_voxel_grid.h>
 
-void FilterPointCloud(pcl::PointCloud<Surfel>::Ptr in,
-                      pcl::PointCloud<Surfel>::Ptr out,
+void FilterPointCloud(pcl::PointCloud<SemanticSurfel>::Ptr in,
+                      pcl::PointCloud<SemanticSurfel>::Ptr out,
                       float resolution) {
-    pcl::ApproximateVoxelGrid<Surfel> approximate_voxel_filter;
+    pcl::ApproximateVoxelGrid<SemanticSurfel> approximate_voxel_filter;
     approximate_voxel_filter.setLeafSize(resolution, resolution, resolution);
     approximate_voxel_filter.setInputCloud(in);
     approximate_voxel_filter.filter(*out);
 }
 
-Eigen::Matrix4f ComputePoseWithNdt(pcl::PointCloud<Surfel>::Ptr input_points,
-                                   pcl::PointCloud<Surfel>::Ptr target_points,
+Eigen::Matrix4f ComputePoseWithNdt(pcl::PointCloud<SemanticSurfel>::Ptr input_points,
+                                   pcl::PointCloud<SemanticSurfel>::Ptr target_points,
                                    Eigen::Matrix4f &initial_pose) {
-    pcl::PointCloud<Surfel> odometry_result;
-    pclomp::NormalDistributionsTransform<Surfel, Surfel> ndt;
+    pcl::PointCloud<SemanticSurfel> odometry_result;
+    pclomp::NormalDistributionsTransform<SemanticSurfel, SemanticSurfel> ndt;
     ndt.setNumThreads(4);
     // Setting point cloud to be aligned.
     ndt.setInputSource(input_points);
@@ -39,8 +39,8 @@ Eigen::Matrix4f ComputePoseWithNdt(pcl::PointCloud<Surfel>::Ptr input_points,
     return ndt.getFinalTransformation();
 }
 
-Eigen::Matrix4f ComputePoseWithNonlinear(pcl::PointCloud<Surfel>::Ptr input_points,
-                                         pcl::PointCloud<Surfel>::Ptr target_points,
+Eigen::Matrix4f ComputePoseWithNonlinear(pcl::PointCloud<SemanticSurfel>::Ptr input_points,
+                                         pcl::PointCloud<SemanticSurfel>::Ptr target_points,
                                          Eigen::Matrix4f &initial_pose) {
     auto start_time = ros::Time::now();
     NonlinearEstimate odometry;

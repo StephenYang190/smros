@@ -11,7 +11,7 @@
 const float PI = acos(-1);
 
 Localization::Localization()
-    : current_point_cloud_(new pcl::PointCloud<Surfel>), scManager_() {
+    : current_point_cloud_(new pcl::PointCloud<SemanticSurfel>), scManager_() {
   nh_.getParam("max_distance_gap", max_distance_);
   nh_.getParam("max_angle_gap", max_angle_);
   local_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("local_pose", 1000);
@@ -35,7 +35,7 @@ void Localization::SurfelCallback(const sensor_msgs::PointCloud2 &msg) {
 
 void Localization::publishMap(const ros::TimerEvent &event) {
   // generate global map
-  pcl::PointCloud<Surfel>::Ptr global_map(new pcl::PointCloud<Surfel>);
+  pcl::PointCloud<SemanticSurfel>::Ptr global_map(new pcl::PointCloud<SemanticSurfel>);
   map_.generateMap(global_map);
   // broadcast point numbers
   for (int i = 0; i < 10; i++) {
@@ -100,7 +100,7 @@ bool Localization::loopDetection() {
     return false;
   }
   // get previous point cloud
-  pcl::PointCloud<Surfel>::Ptr pre_point_clouds =
+  pcl::PointCloud<SemanticSurfel>::Ptr pre_point_clouds =
       map_.getUnActiveMapPtr(pre_index);
   // set initial_pose
   pose_type init_pose = pose_type::Identity();

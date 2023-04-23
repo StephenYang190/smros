@@ -11,7 +11,7 @@
 #include <queue>
 
 #include "backendopt.h"
-#include "surfel.h"
+#include "semantic_surfel.h"
 
 using pose_type = Eigen::Matrix4f;
 
@@ -22,10 +22,10 @@ public:
     ~SemanticMap();
 
     // get active map ptr
-    pcl::PointCloud<Surfel>::Ptr getActiveMapPtr();
+    pcl::PointCloud<SemanticSurfel>::Ptr getActiveMapPtr();
 
     // update map
-    bool updateMap(pcl::PointCloud<Surfel>::Ptr current_frame,
+    bool updateMap(pcl::PointCloud<SemanticSurfel>::Ptr current_frame,
                    pose_type crt_pose = pose_type::Identity());
 
     void saveLocalPose(pose_type crt_pose);
@@ -34,21 +34,21 @@ public:
     pose_type &getLastPose();
 
     // generate global map
-    bool generateMap(pcl::PointCloud<Surfel>::Ptr global_map);
+    bool generateMap(pcl::PointCloud<SemanticSurfel>::Ptr global_map);
 
     // get final point cloud index
     int getCurrentFrameId();
 
     // get point clouds at id in local coordination
-    pcl::PointCloud<Surfel>::Ptr getPointCloudsInLocal(int id);
+    pcl::PointCloud<SemanticSurfel>::Ptr getPointCloudsInLocal(int id);
 
-    pcl::PointCloud<Surfel>::Ptr getUnActiveMapPtr(int id);
+    pcl::PointCloud<SemanticSurfel>::Ptr getUnActiveMapPtr(int id);
 
     // set loop edge in factor graph
     bool setLoopsureEdge(int from, int to, pose_type &pose);
 
     // get point clouds at id in global coordination
-    pcl::PointCloud<Surfel>::Ptr getPointCloudsInGlobal(int id);
+    pcl::PointCloud<SemanticSurfel>::Ptr getPointCloudsInGlobal(int id);
 
     // reset loop times
     bool resetLoopTimes();
@@ -67,9 +67,9 @@ private:
     std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>>
             local_poses_;
     // store point clouds frame by frame
-    std::vector<pcl::PointCloud<Surfel>::Ptr> semantic_map_;
-    pcl::PointCloud<Surfel>::Ptr active_map_;
-    pcl::PointCloud<Surfel>::Ptr unactive_map_;
+    std::vector<pcl::PointCloud<SemanticSurfel>::Ptr> semantic_map_;
+    pcl::PointCloud<SemanticSurfel>::Ptr active_map_;
+    pcl::PointCloud<SemanticSurfel>::Ptr unactive_map_;
     int time_gap_;
     // ros nodehandle
     ros::NodeHandle nh_;

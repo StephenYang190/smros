@@ -30,7 +30,7 @@ protected:
 
 private:
     ros::NodeHandle nh_;
-    pcl::PointCloud<Surfel>::Ptr current_point_cloud_;
+    pcl::PointCloud<SemanticSurfel>::Ptr current_point_cloud_;
     ros::Publisher local_pose_pub_;
     ros::Publisher global_map_pub_;
     pose_type current_pose;

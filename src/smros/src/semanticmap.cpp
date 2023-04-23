@@ -10,8 +10,8 @@
 #include <pcl/kdtree/kdtree_flann.h>
 
 SemanticMap::SemanticMap()
-        : active_map_(new pcl::PointCloud<Surfel>),
-          unactive_map_(new pcl::PointCloud<Surfel>) {
+        : active_map_(new pcl::PointCloud<SemanticSurfel>),
+          unactive_map_(new pcl::PointCloud<SemanticSurfel>) {
     // initial vector
     global_poses_.resize(0);
     local_poses_.resize(0);
@@ -44,7 +44,7 @@ SemanticMap::SemanticMap()
 
 SemanticMap::~SemanticMap() {}
 
-pcl::PointCloud<Surfel>::Ptr SemanticMap::getActiveMapPtr() {
+pcl::PointCloud<SemanticSurfel>::Ptr SemanticMap::getActiveMapPtr() {
     if (semantic_map_.empty()) {
         return nullptr;
     }
@@ -53,7 +53,7 @@ pcl::PointCloud<Surfel>::Ptr SemanticMap::getActiveMapPtr() {
     // generate map
     pose_type last_pose = pose_type::Identity();
     for (int i = total_frame - 1; i > total_frame - time_gap_ && i > -1; i--) {
-        pcl::PointCloud<Surfel> transform_result;
+        pcl::PointCloud<SemanticSurfel> transform_result;
         pcl::transformPointCloud(*semantic_map_[i], transform_result, last_pose);
         *active_map_ += transform_result;
         last_pose = last_pose * local_poses_[i].inverse();
@@ -61,18 +61,18 @@ pcl::PointCloud<Surfel>::Ptr SemanticMap::getActiveMapPtr() {
     return active_map_;
 }
 
-bool SemanticMap::updateMap(pcl::PointCloud<Surfel>::Ptr current_frame,
+bool SemanticMap::updateMap(pcl::PointCloud<SemanticSurfel>::Ptr current_frame,
                             pose_type crt_pose) {
     // save pose
     saveLocalPose(crt_pose);
     // create a new timestamp surfel
-    pcl::PointCloud<Surfel>::Ptr new_pointcloud(new pcl::PointCloud<Surfel>());
+    pcl::PointCloud<SemanticSurfel>::Ptr new_pointcloud(new pcl::PointCloud<SemanticSurfel>());
     int num_point = current_frame->size();
     if (active_map_->points.size() > 0) {
-        pcl::PointCloud<Surfel> odometry_result;
+        pcl::PointCloud<SemanticSurfel> odometry_result;
         pcl::transformPointCloud(*current_frame, odometry_result, crt_pose);
         // kdtree to find nearest point
-        pcl::KdTreeFLANN<Surfel> kdtree;
+        pcl::KdTreeFLANN<SemanticSurfel> kdtree;
         kdtree.setInputCloud(active_map_);
         int K = 1;
         std::vector<int> pointIdxKNNSearch(K);
@@ -81,8 +81,8 @@ bool SemanticMap::updateMap(pcl::PointCloud<Surfel>::Ptr current_frame,
             if (kdtree.nearestKSearch(odometry_result[i], K, pointIdxKNNSearch,
                                       pointKNNSquaredDistance) > 0) {
                 if (pointKNNSquaredDistance[0] < 0.05 &&
-                    active_map_->points[pointIdxKNNSearch[0]].point_type ==
-                    current_frame->points[i].point_type) {
+                    active_map_->points[pointIdxKNNSearch[0]].label ==
+                    current_frame->points[i].label) {
                     continue;
                 }
             }
@@ -130,11 +130,11 @@ void SemanticMap::saveLocalPose(pose_type crt_pose) {
 
 pose_type &SemanticMap::getLastPose() { return local_poses_.back(); }
 
-bool SemanticMap::generateMap(pcl::PointCloud<Surfel>::Ptr global_map) {
+bool SemanticMap::generateMap(pcl::PointCloud<SemanticSurfel>::Ptr global_map) {
     if (semantic_map_.empty()) {
         return false;
     }
-    pcl::PointCloud<Surfel> transform_result;
+    pcl::PointCloud<SemanticSurfel> transform_result;
     for (int i = 0; i < semantic_map_.size(); i++) {
         transform_result.clear();
         pcl::transformPointCloud(*semantic_map_[i], transform_result,
@@ -146,11 +146,11 @@ bool SemanticMap::generateMap(pcl::PointCloud<Surfel>::Ptr global_map) {
 
 int SemanticMap::getCurrentFrameId() { return current_frame_id_; }
 
-pcl::PointCloud<Surfel>::Ptr SemanticMap::getPointCloudsInLocal(int id) {
+pcl::PointCloud<SemanticSurfel>::Ptr SemanticMap::getPointCloudsInLocal(int id) {
     return semantic_map_[id];
 }
 
-pcl::PointCloud<Surfel>::Ptr SemanticMap::getUnActiveMapPtr(int id) {
+pcl::PointCloud<SemanticSurfel>::Ptr SemanticMap::getUnActiveMapPtr(int id) {
     if (semantic_map_.empty()) {
         return nullptr;
     }
@@ -159,7 +159,7 @@ pcl::PointCloud<Surfel>::Ptr SemanticMap::getUnActiveMapPtr(int id) {
     // generate map
     pose_type last_pose = pose_type::Identity();
     for (int i = id; i > id - time_gap_ && i > -1; i--) {
-        pcl::PointCloud<Surfel> transform_result;
+        pcl::PointCloud<SemanticSurfel> transform_result;
         pcl::transformPointCloud(*semantic_map_[i], transform_result, last_pose);
         *unactive_map_ += transform_result;
         last_pose = last_pose * local_poses_[i].inverse();
