@@ -18,6 +18,8 @@ struct SemanticSurfel {
     float confidence;
     float curvature;
     int label;
+    int u;
+    int v;
 
     PCL_MAKE_ALIGNED_OPERATOR_NEW     // make sure our new allocators are aligned
 };                    // enforce SSE padding for correct memory alignment
@@ -34,6 +36,11 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (SemanticSurfel,           // here we assume a
                                            (float, confidence, confidence)
                                            (float, curvature, curvature)
                                            (int, label, point_type)
+                                           (int, u, u)
+                                           (int, v, v)
 )
+
+using PointT = SemanticSurfel;
+using PointCloudT = pcl::PointCloud<PointT>;
 
 #endif //SMROS_SEMANTIC_SURFEL_H

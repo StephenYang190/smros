@@ -2,11 +2,15 @@
 // Created by tongdayang on 4/14/23.
 //
 
+#include <fstream>
 #include "pose_estimate.h"
 #include "ceres/ceres.h"
 #include "ceres/rotation.h"
 #include "point_cost_factor.h"
 #include "utils.h"
+#include <ros/ros.h>
+
+const float PI = acos(-1);
 
 NonlinearEstimate::NonlinearEstimate() :
         q_last_crt_(q_array_),
@@ -17,36 +21,39 @@ NonlinearEstimate::NonlinearEstimate() :
 
 // TODO: filter point size(pcl::voxelGrid can not use on custom type)
 void NonlinearEstimate::SetSourcePointCloud(pcl::PointCloud<pointT>::Ptr cloud) {
-    FilterPointCloud(cloud, source_cloud_, resolution_);
+//    FilterPointCloud(cloud, source_cloud_, resolution_);
+    source_cloud_ = cloud;
 }
 
 void NonlinearEstimate::SetTargetPointCloud(pcl::PointCloud<pointT>::Ptr cloud) {
-    FilterPointCloud(cloud, target_cloud_, resolution_);
+//    FilterPointCloud(cloud, target_cloud_, resolution_);
+    target_cloud_ = cloud;
     // compute target point cloud normal
+    GenerateVertexMap();
     target_point_kdtree_.setInputCloud(target_cloud_);
     ComputeNormal(target_cloud_, target_normal_, target_planarity_);
 }
 
-bool NonlinearEstimate::Align(Eigen::Matrix4f init_pose) {
-    // setting init pose
-    Eigen::Quaternionf quaternionf(init_pose.block<3, 3>(0, 0));
-    q_array_[0] = double(quaternionf.coeffs().data()[0]);
-    q_array_[1] = double(quaternionf.coeffs().data()[1]);
-    q_array_[2] = double(quaternionf.coeffs().data()[2]);
-    q_array_[3] = double(quaternionf.coeffs().data()[3]);
-
-    t_array_[0] = double(init_pose(0, 3));
-    t_array_[1] = double(init_pose(1, 3));
-    t_array_[2] = double(init_pose(2, 3));
+bool NonlinearEstimate::Align() {
     for (int i = 0; i < max_iterations_; i++) {
+        auto start_time = ros::Time::now();
         // match source and target
         Match();
+        auto match_time = ros::Time::now();
         // reject pair
         Reject();
+        auto reject_time = ros::Time::now();
+//        std::cout << "source: " << source_cloud_->points.size() << ", target: " << target_cloud_->points.size()
+//                  << std::endl;
+//        std::cout << "match: " << match_result_.size() << ", reject: " << reject_result_.size() << std::endl;
         // estimate
         if (!Estimate()) {
             return false;
         }
+        auto estimate_time = ros::Time::now();
+//        std::cout << "match time: " << (match_time - start_time).toSec() << "s" << std::endl;
+//        std::cout << "reject time: " << (reject_time - match_time).toSec() << "s" << std::endl;
+//        std::cout << "estimate time: " << (estimate_time - reject_time).toSec() << "s" << std::endl;
         if (converged_) {
             return true;
         }
@@ -65,27 +72,36 @@ void NonlinearEstimate::Match() {
     int K = 1;
     std::vector<int> pointIdxKNNSearch(K);
     std::vector<float> pointKNNSquaredDistance(K);
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     for (int i = 0; i < point_number; i++) {
         pointT t_point = TransformPoint(source_cloud_->points[i]);
-        if (target_point_kdtree_.nearestKSearch(t_point, K, pointIdxKNNSearch,
-                                                pointKNNSquaredDistance) > 0) {
-            if (pointKNNSquaredDistance[0] > 1) {
-                continue;
+        // compute u v index
+        int u, v;
+        float r;
+        if (ComputeUVIndex(t_point, u, v, r)) {
+            int target_index = vertex_maps_[u][v].index;
+            if (target_index > 0) {
+                match_result_[target_index] = i;
             }
-            int target_index = pointIdxKNNSearch[0];
-            auto iter = match_result_.find(target_index);
-            if (iter != match_result_.end() && distance_[target_index] < pointKNNSquaredDistance[0]) {
-                continue;
-            }
-            match_result_[target_index] = i;
-            distance_[target_index] = pointKNNSquaredDistance[0];
         }
+//        if (target_point_kdtree_.nearestKSearch(t_point, K, pointIdxKNNSearch,
+//                                                pointKNNSquaredDistance) > 0) {
+//            if (pointKNNSquaredDistance[0] > 1) {
+//                continue;
+//            }
+//            int target_index = pointIdxKNNSearch[0];
+//            auto iter = match_result_.find(target_index);
+//            if (iter != match_result_.end() && distance_[target_index] < pointKNNSquaredDistance[0]) {
+//                continue;
+//            }
+//            match_result_[target_index] = i;
+//            distance_[target_index] = pointKNNSquaredDistance[0];
+//        }
     }
 }
 
 bool NonlinearEstimate::Estimate() {
     int point_number = reject_result_.size();
-    std::cout << "pair number: " << point_number << std::endl;
     if (point_number < 5) {
         return false;
     }
@@ -138,12 +154,10 @@ pointT NonlinearEstimate::TransformPoint(pointT in_point) {
     return out_point;
 }
 
-Eigen::Matrix4f NonlinearEstimate::GetFinalResult() {
-    Eigen::Matrix3d rotation_matrix;
-    rotation_matrix = q_last_crt_.matrix();
-    Eigen::Matrix4f final_pose = Eigen::Matrix4f::Identity();
-    final_pose.block<3, 3>(0, 0) = rotation_matrix.cast<float>();
-    final_pose.block<3, 1>(0, 3) = Eigen::Vector3f(t_last_crt_[0], t_last_crt_[1], t_last_crt_[2]);
+Eigen::Matrix4d NonlinearEstimate::GetFinalResult() {
+    Eigen::Matrix4d final_pose = Eigen::Matrix4d::Identity();
+    final_pose.block<3, 3>(0, 0) = q_last_crt_.matrix();
+    final_pose.block<3, 1>(0, 3) = Eigen::Vector3d(t_last_crt_[0], t_last_crt_[1], t_last_crt_[2]);
     return final_pose;
 }
 
@@ -187,6 +201,9 @@ void NonlinearEstimate::ComputeNormal(pcl::PointCloud<pointT>::Ptr cloud, std::v
 void NonlinearEstimate::Reject() {
     reject_result_.clear();
     for (auto iter: match_result_) {
+        if (target_cloud_->points[iter.first].label != source_cloud_->points[iter.second].label) {
+            continue;
+        }
         if (target_planarity_[iter.first] >= min_planarity_) {
             reject_result_[iter.first] = iter.second;
         }
@@ -204,3 +221,58 @@ bool NonlinearEstimate::IsConverged() {
 void NonlinearEstimate::SetMinPlanarity(double mp) {
     min_planarity_ = mp;
 }
+
+void NonlinearEstimate::GenerateVertexMap() {
+    vertex_maps_ptr_.reset(new VertexMap(width_, height_));
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
+    for (int i = 0; i < target_cloud_->points.size(); i++) {
+        auto point = target_cloud_->points[i];
+        vertex_maps_[point.u][point.v].index = i;
+        vertex_maps_[point.u][point.v].point = point;
+    }
+}
+
+bool NonlinearEstimate::ComputeUVIndex(pointT point, int &u, int &v, float &r_xyz) {
+    float x, y, z;
+    float yaw_angle, pitch_angle;
+    x = point.x;
+    y = point.y;
+    z = point.z;
+    // compute the distance to zero point
+    r_xyz = sqrt(x * x + y * y + z * z);
+    // compute the yaw angle (max:360)
+    yaw_angle = atan2(y, x);
+    // compute u coordination
+    u = (int) (width_ * 0.5 * (yaw_angle / PI + 1));
+    // compute the pitch angle (max:360)
+    pitch_angle = asin(z / r_xyz) * 180.0 / PI;
+    // compute v coordination
+    v = (int) (height_ * ((abs(fov_up_) - pitch_angle) / fov_));
+    // coordination can not out of range
+    if (u > width_ - 1 || u < 0 || v > height_ - 1 || v < 0) {
+        return false;
+    }
+    return true;
+}
+
+void NonlinearEstimate::SetQuaternion(double *q_init) {
+    for (int i = 0; i < 4; i++) {
+        q_array_[i] = q_init[i];
+    }
+}
+
+void NonlinearEstimate::SetTranslation(double *t_init) {
+    for (int i = 0; i < 3; i++) {
+        t_array_[i] = t_init[i];
+    }
+}
+
+const double *NonlinearEstimate::GetQuaternion() {
+    return q_array_;
+}
+
+const double *NonlinearEstimate::GetTranslation() {
+    return t_array_;
+}
+
+

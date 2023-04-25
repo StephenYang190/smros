@@ -11,7 +11,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include "semanticmap.h"
+#include "pose_estimate.h"
 
 class Localization {
 public:
@@ -19,33 +19,25 @@ public:
 
     ~Localization();
 
-    void SurfelCallback(const sensor_msgs::PointCloud2 &msg);
-
-    void publishMap(const ros::TimerEvent &event);
-
 protected:
     void laserOdometry();
 
-    bool loopDetection();
+    void SurfelCallback(const sensor_msgs::PointCloud2 &msg);
 
 private:
     ros::NodeHandle nh_;
     pcl::PointCloud<SemanticSurfel>::Ptr current_point_cloud_;
+    pcl::PointCloud<SemanticSurfel>::Ptr last_point_cloud_;
     ros::Publisher local_pose_pub_;
-    ros::Publisher global_map_pub_;
-    pose_type current_pose;
+    Eigen::Matrix4d current_pose;
     ros::Subscriber surfel_sub_;
-    // scan context manager
-    SCManager scManager_;
     // distance threshold
     float max_distance_;
     // angle thresholdmap
     float max_angle_;
-    SemanticMap map_;
-    ros::Timer timer_;
     uint32_t current_seq_;
-    // timestamp
-    int current_frame_id_;
+    // nonlinear estimate
+    NonlinearEstimate odometry;
 };
 
 #endif // SRC_LOCALIZATION_H

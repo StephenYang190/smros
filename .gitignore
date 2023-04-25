@@ -7,3 +7,4 @@ dataset
 model
 src/smros/tmp_save_pre_code/*
 */*/cmake-build-*
+shared_directory

@@ -10,120 +10,68 @@
 
 const float PI = acos(-1);
 
-Localization::Localization()
-    : current_point_cloud_(new pcl::PointCloud<SemanticSurfel>), scManager_() {
-  nh_.getParam("max_distance_gap", max_distance_);
-  nh_.getParam("max_angle_gap", max_angle_);
-  local_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("local_pose", 1000);
-  global_map_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("global_map", 1000);
-  current_pose = Eigen::Matrix4f::Identity();
-  surfel_sub_ =
-      nh_.subscribe("surfel", 1000, &Localization::SurfelCallback, this);
-  timer_ = nh_.createTimer(ros::Duration(5), &Localization::publishMap, this);
+Localization::Localization() {
+    nh_.getParam("max_distance_gap", max_distance_);
+    nh_.getParam("max_angle_gap", max_angle_);
+    local_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("local_pose", 1000);
+    current_pose = Eigen::Matrix4d::Identity();
+    surfel_sub_ =
+            nh_.subscribe("surfel", 1000, &Localization::SurfelCallback, this);
+
+    // set last point cloud to empty
+    last_point_cloud_.reset();
+    // init odometry
+    odometry.SetMaxIterations(10);
+    odometry.SetResolution(0.05);
 }
 
 Localization::~Localization() {}
 
 void Localization::SurfelCallback(const sensor_msgs::PointCloud2 &msg) {
-  pcl::fromROSMsg(msg, *current_point_cloud_);
-  current_seq_ = msg.header.seq;
-  current_frame_id_ = map_.getCurrentFrameId();
-  laserOdometry();
-  map_.updateMap(current_point_cloud_, current_pose);
-  loopDetection();
-}
-
-void Localization::publishMap(const ros::TimerEvent &event) {
-  // generate global map
-  pcl::PointCloud<SemanticSurfel>::Ptr global_map(new pcl::PointCloud<SemanticSurfel>);
-  map_.generateMap(global_map);
-  // broadcast point numbers
-  for (int i = 0; i < 10; i++) {
-    std::cout << "*\t";
-  }
-  std::cout << std::endl;
-  std::cout << "render map. SemanticMap have: " << global_map->size()
-            << std::endl;
-  for (int i = 0; i < 10; i++) {
-    std::cout << "*\t";
-  }
-  std::cout << std::endl;
-  // voxel filter
-  FilterPointCloud(global_map, global_map, 0.5);
-  // public to rviz
-  sensor_msgs::PointCloud2 msg;
-  pcl::toROSMsg(*global_map, msg);
-  msg.header.frame_id = "velodyne";
-  global_map_pub_.publish(msg);
+    // accept new point cloud
+    current_point_cloud_.reset(new pcl::PointCloud<SemanticSurfel>);
+    pcl::fromROSMsg(msg, *current_point_cloud_);
+    current_seq_ = msg.header.seq;
+    laserOdometry();
+    // set last point cloud
+    last_point_cloud_ = current_point_cloud_;
+    odometry.SetTargetPointCloud(last_point_cloud_);
 }
 
 void Localization::laserOdometry() {
-  auto active_map = map_.getActiveMapPtr();
-  if (active_map) {
-    auto last_pose = map_.getLastPose();
-    current_pose = ComputePoseWithNonlinear(current_point_cloud_, active_map, last_pose);
-    Eigen::Matrix3f rotation = current_pose.block<3, 3>(0, 0);
-    // TODO: detect t matrix index 3, 1? or 1, 3?
-    Eigen::Vector3f t(current_pose.block<3, 1>(0, 3));
-    float distance = t.norm();
-    float yaw_angle = rotation.eulerAngles(2, 1, 0)[0] / PI * 180;
-    //    std::cout << "yaw angle : " << yaw_angle << std::endl;
-    //    std::cout << "distance between two frames is : " << distance <<
-    //    std::endl;
-  }
-  // transfer matrix to quaternion
-  Eigen::Quaternionf q(current_pose.block<3, 3>(0, 0));
-  Eigen::Vector3f t(current_pose.block<1, 3>(0, 3));
-  // publish pose
-  nav_msgs::Odometry current_odometry;
-  current_odometry.header.frame_id = "velodyne";
-  current_odometry.child_frame_id = "laser_odom";
-  current_odometry.header.seq = current_seq_;
-  current_odometry.pose.pose.orientation.x = q.x();
-  current_odometry.pose.pose.orientation.y = q.y();
-  current_odometry.pose.pose.orientation.z = q.z();
-  current_odometry.pose.pose.orientation.w = q.w();
-  current_odometry.pose.pose.position.x = t.x();
-  current_odometry.pose.pose.position.y = t.y();
-  current_odometry.pose.pose.position.z = t.z();
-  local_pose_pub_.publish(current_odometry);
-}
-
-bool Localization::loopDetection() {
-  scManager_.makeAndSaveScancontextAndKeys(*current_point_cloud_);
-  auto pair_result = scManager_.detectLoopClosureID();
-  int pre_index = pair_result.first;
-  if (pre_index == -1 || pre_index > current_frame_id_) {
-    //    if (!od_loopsure) {
-    //      scManager_.popBack();
-    //    }
-    return false;
-  }
-  // get previous point cloud
-  pcl::PointCloud<SemanticSurfel>::Ptr pre_point_clouds =
-      map_.getUnActiveMapPtr(pre_index);
-  // set initial_pose
-  pose_type init_pose = pose_type::Identity();
-  float yaw_arc = scManager_.getYawDiff();
-  
-  Eigen::AngleAxisf yawAngle(
-      Eigen::AngleAxisd(yaw_arc, Eigen::Vector3d::UnitZ()));
-
-  Eigen::Matrix3f rotation_matrix = yawAngle.toRotationMatrix();
-  init_pose.block<3, 3>(0, 0) = rotation_matrix;
-
-  pose_type res_pose =
-          ComputePoseWithNdt(current_point_cloud_, pre_point_clouds, init_pose);
-  std::cout << "pre index: " << pre_index
-            << ", crt index: " << pair_result.second
-            << " current in map: " << current_frame_id_ << std::endl;
-  map_.setLoopsureEdge(current_frame_id_, pre_index, res_pose);
-  return true;
+    if (last_point_cloud_) {
+        odometry.SetSourcePointCloud(current_point_cloud_);
+        odometry.Align();
+        current_pose = odometry.GetFinalResult();
+//    Eigen::Matrix3d rotation = current_pose.block<3, 3>(0, 0);
+//    Eigen::Vector3d t(current_pose.block<3, 1>(0, 3));
+//    float distance = t.norm();
+//    float yaw_angle = rotation.eulerAngles(2, 1, 0)[0] / PI * 180;
+        //    std::cout << "yaw angle : " << yaw_angle << std::endl;
+        //    std::cout << "distance between two frames is : " << distance <<
+        //    std::endl;
+    }
+    // transfer matrix to quaternion
+    auto q = odometry.GetQuaternion();
+    auto t = odometry.GetTranslation();
+    // publish pose
+    nav_msgs::Odometry current_odometry;
+    current_odometry.header.frame_id = "velodyne";
+    current_odometry.child_frame_id = "laser_odom";
+    current_odometry.header.seq = current_seq_;
+    current_odometry.pose.pose.orientation.x = q[0];
+    current_odometry.pose.pose.orientation.y = q[1];
+    current_odometry.pose.pose.orientation.z = q[2];
+    current_odometry.pose.pose.orientation.w = q[3];
+    current_odometry.pose.pose.position.x = t[0];
+    current_odometry.pose.pose.position.y = t[1];
+    current_odometry.pose.pose.position.z = t[2];
+    local_pose_pub_.publish(current_odometry);
 }
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "localization");
-  Localization localization;
-  ros::spin();
-  return 0;
+    ros::init(argc, argv, "localization");
+    Localization localization;
+    ros::spin();
+    return 0;
 }

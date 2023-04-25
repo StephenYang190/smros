@@ -19,7 +19,7 @@ Perception::Perception()
         model_path = work_directory_ + model_path;
         net_ = std::make_shared<RangenetAPI>(model_path);
     }
-    // get vertex map parameters
+    // get Vertex map parameters
     nh_.getParam("width", width_);
     nh_.getParam("height", height_);
     nh_.getParam("fov_down", fov_down_);
@@ -30,11 +30,7 @@ Perception::Perception()
     nh_.getParam("is_remove_vehicle", remove_vehicle_);
     nh_.getParam("is_down_sampling", downsample_);
     fov_ = abs(fov_up_) + abs(fov_down_);
-    // init vertex map
-    vertex_maps_.resize(width_);
-    for (int i = 0; i < width_; i++) {
-        vertex_maps_[i].resize(height_);
-    }
+    p_ = std::max(float(width_) / float(360.0), float(height_) / fov_);
     // init publisher
     surfel_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("surfel", 1000);
     range_image_pub_ = img_nh_.advertise("range_image", 1000);
@@ -79,6 +75,7 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
 
     pcl::PointCloud<SemanticSurfel> output_point_cloud;
     output_point_cloud.resize(output_point_number_);
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     int i = 0;
     for (int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
@@ -99,7 +96,8 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
 }
 
 bool Perception::generateVertexMap(std::vector<int> &point_labels) {
-    clearVertexMap();
+    // init vertex map
+    vertex_maps_ptr_.reset(new VertexMap(width_, height_));
     int num_points = input_point_cloud_->size();
     std::map<int, int> label_numbers;
     std::map<int, bool> label_valid;
@@ -112,12 +110,12 @@ bool Perception::generateVertexMap(std::vector<int> &point_labels) {
         label_valid[iter.first] = iter.second > 30;
     }
     // compute the mapping from point to map
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     float r_xyz;
     int u, v;
     for (int i = 0; i < num_points; i++) {
         // remove moving object
-        if (point_labels[i] < 40 || point_labels[i] > 90)
-            continue;
+//        if (point_labels[i] < 40 || point_labels[i] > 90) { continue; }
         // skip type with little points
         int label = point_labels[i];
         if (!label_valid[label]) {
@@ -164,17 +162,10 @@ bool Perception::computeUVIndex(int point_index, int &u, int &v, float &r_xyz) {
     return true;
 }
 
-void Perception::clearVertexMap() {
-    for (int u = 0; u < width_; u++) {
-        for (int v = 0; v < height_; v++) {
-            vertex_maps_[u][v].index = -1;
-        }
-    }
-}
-
 void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
                               int timestamp) {
     output_point_number_ = 0;
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     // construct point
     std::vector<cv::Vec3b> color_mask = net_->getLabels(semantic_result, input_point_cloud_->size());
     for (int u = 0; u < width_; u++) {
@@ -190,6 +181,8 @@ void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
             point.r = color_mask[index][0];
             point.g = color_mask[index][1];
             point.b = color_mask[index][2];
+            point.u = u;
+            point.v = v;
             point.confidence = initial_confidence_;
             output_point_number_++;
         }
@@ -198,6 +191,7 @@ void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
 }
 
 void Perception::publishRangeImage() {
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     cv::Mat range_image(height_, width_, CV_8UC3, cv::Scalar(0, 0, 0));
     for (int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
@@ -214,6 +208,7 @@ void Perception::publishRangeImage() {
 }
 
 void Perception::generateNormal() {
+    auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
     for (int u = 0; u < width_; u++) {
         for (int v = 0; v < height_; v++) {
             // no point fit in this way
@@ -221,11 +216,11 @@ void Perception::generateNormal() {
                 continue;
             }
             // find nearest point
-            int u_index = (u + 1) % width_, v_index = (v + 1) % height_;
-            if (vertex_maps_[u_index][v].index != -1) {
+            int u_index = (u + 1) % width_, v_index = v + 1;
+            if (vertex_maps_[u_index][v].index < 0) {
                 continue;
             }
-            if (vertex_maps_[u][v_index].index != -1) {
+            if (v_index >= height_ || vertex_maps_[u][v_index].index < 0) {
                 continue;
             }
             // get the point

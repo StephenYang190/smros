@@ -1,7 +1,7 @@
 # Work directory
 work_directory: /smros_ws/catkin_ws/src/
 # Vertex parameters
-width: 1800
+width: 900
 height: 64
 fov_up: 2.0
 fov_down: -25.0
@@ -20,7 +20,7 @@ gamma: 0.5
 confidence_threshold: 0.0
 
 # SumaSLAM parameters
-time_gap: 5
+time_gap: 2
 inactive_time: 100
 od_dis: 0.5
 skip_gap: 0

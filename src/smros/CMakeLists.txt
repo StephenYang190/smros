@@ -59,16 +59,17 @@ add_executable(perception
 target_link_libraries(perception ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_executable(localization
-        src/backendopt.cpp
         src/localization.cpp
-        src/semanticmap.cpp
-        src/surfel.cpp
+        src/semantic_surfel.cpp
         src/pose_estimate.cpp
         src/utils.cpp)
-target_link_libraries(localization ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam ndt_omp scan_context Ceres::ceres)
+target_link_libraries(localization ${catkin_LIBRARIES} ${PCL_LIBRARIES} ndt_omp Ceres::ceres)
 
-add_executable(test_rangenet
-        src/test_rangenet.cpp
-        src/RangenetAPI.cpp
+add_executable(semantic_map
+        src/semanticmap.cpp
+        src/utils.cpp
+        src/semantic_surfel.cpp
+        src/backendopt.cpp
+        src/pose_estimate.cpp
         )
-target_link_libraries(test_rangenet ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(semantic_map ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} gtsam scan_context ndt_omp Ceres::ceres)

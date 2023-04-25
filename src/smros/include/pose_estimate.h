@@ -16,6 +16,31 @@
 
 using pointT = SemanticSurfel;
 
+struct Vertex {
+    float radius = 0.0;
+    int index = -1;
+    SemanticSurfel point;
+};
+
+class VertexMap {
+public:
+    VertexMap(int width, int height) : width_(width), height_(height) {
+        // init Vertex map
+        vertex_maps_.resize(width_);
+        for (int i = 0; i < width_; i++) {
+            Vertex vertex;
+            vertex_maps_[i].resize(height_, vertex);
+        }
+    }
+
+    std::vector<std::vector<Vertex>> &GetMap() {
+        return vertex_maps_;
+    }
+
+    std::vector<std::vector<Vertex>> vertex_maps_;
+    int height_, width_;
+};
+
 class NonlinearEstimate {
 public:
     NonlinearEstimate();
@@ -26,15 +51,23 @@ public:
 
     void SetMaxIterations(int n);
 
-    bool Align(Eigen::Matrix4f init_pose);
+    bool Align();
 
-    Eigen::Matrix4f GetFinalResult();
+    Eigen::Matrix4d GetFinalResult();
 
     void SetResolution(float r);
 
     bool IsConverged();
 
     void SetMinPlanarity(double mp);
+
+    void SetQuaternion(double *q_init);
+
+    void SetTranslation(double *t_init);
+
+    const double *GetQuaternion();
+
+    const double *GetTranslation();
 
 protected:
 
@@ -48,6 +81,10 @@ protected:
                        std::vector<double> &planarity);
 
     void Reject();
+
+    void GenerateVertexMap();
+
+    bool ComputeUVIndex(pointT point, int &u, int &v, float &r_xyz);
 
 private:
     pcl::PointCloud<pointT>::Ptr source_cloud_;
@@ -66,6 +103,13 @@ private:
     float resolution_{0.01};
     bool converged_{false};
     double min_planarity_{0.3};
+
+    // Vertex map, which store the index of point in point clouds
+    std::shared_ptr<VertexMap> vertex_maps_ptr_;
+    int width_{900};
+    int height_{64};
+    float fov_{27.0};
+    float fov_up_{2.0};
 };
 
 

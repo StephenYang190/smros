@@ -8,19 +8,11 @@ Developed by Tongda Yang.
 
 ## Now statue:
 
-- [x] complete pre-processing
-- [x] complete map representation
-- [x] complete  odometry(odt-omp)
-- [x] complete map updating
-- [x] complete loop sure detection(scan context)
-- [x] complete factor graph optimization
-- [x] key frame selection method
-- [ ] map update method
-- [ ] semantic information usage
-- [ ] submap
-- [x] problem occur in normal estimation and update
-- [x] run in docker
-
+- [x] Point cloud segmentation using RangeNet
+- [x] Odometry using point to plane icp
+- [x] Loop sure detection using Scan context
+- [x] Global pose optimization using GTSAM(factor graph)
+- [x] Docker environment
 
 ## Following target:
 - [ ] Optimise the performance of nonlinear pose estimation
@@ -29,7 +21,8 @@ Developed by Tongda Yang.
 - [ ] More accurate normal computing and pose estimation
 - [ ] Map store and updating method
 - [ ] Separate localization and mapping modules
-- [ ] Redefine point type with pcl::XYZRGB
+- [ ] Redefine point type
+
 ## Docker
 You can now run this project by docker. The following will conduct you to run this project in docker.
 
@@ -37,7 +30,7 @@ First, you need to clone this project and build docker image by Dockerfile.
 ```bash
 git clone https://github.com/StephenYang190/smros.git
 cd smros/docker
-docker build -t smros:v2.0 .
+docker build -t smros:v3.0 .
 ```
 After the docker image has been build successfully, you can start the docker container by script.
 ```bash
@@ -48,7 +41,7 @@ Now, you can go into docker by script and build this project
 ```bash
 bash docker/into_docker.sh
 # run this command in docker container
-bash script/initiation.sh
+bash scripts/environment_init.sh
 roslaunch smros lasermap.launch
 ```
 ## System dependencies:

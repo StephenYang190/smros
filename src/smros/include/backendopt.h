@@ -18,17 +18,23 @@ private:
     gtsam::NonlinearFactorGraph pose_graph_;
     gtsam::Values initials_;
     gtsam::Values results_;
-    Eigen::DiagonalMatrix<double, 6>  info_;
+    Eigen::DiagonalMatrix<double, 6> info_;
 
 public:
     BackEndOpt();
+
     ~BackEndOpt();
-    bool setInitialValues(int id, const Eigen::Matrix4d& initial_estimate);
-    bool addEdge(int from, int to, const Eigen::Matrix4d & measurement,
-                 const Eigen::Matrix<double, 6, 6>& information);
-    bool addEdge(int from, int to, const Eigen::Matrix4d & measurement);
+
+    bool setInitialValues(int id, const Eigen::Matrix4d &initial_estimate);
+
+    bool addEdge(int from, int to, const Eigen::Matrix4d &measurement,
+                 const Eigen::Matrix<double, 6, 6> &information);
+
+    bool addEdge(int from, int to, const Eigen::Matrix4d &measurement);
+
     bool optimize(int num_iters);
-    bool updatePoses(std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> & pose);
+
+    bool updatePoses(std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> &pose);
 };
 
 
