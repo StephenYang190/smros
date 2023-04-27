@@ -4,6 +4,7 @@
 
 #include "semanticmap.h"
 #include "utils.h"
+#include <opencv2/opencv.hpp>
 #include <pcl/common/transforms.h>
 
 #define PCL_NO_PRECOMPILE
@@ -240,6 +241,48 @@ void SemanticMap::PoseCallback(const nav_msgs::Odometry &msg) {
   current_pose.block<3, 3>(0, 0) = q.toRotationMatrix();
   current_pose.block<3, 1>(0, 3) = t;
   UpdateMap(current_pose);
+  //  createSCImage();
+}
+
+void SemanticMap::createSCImage() {
+  int num_pts_scan_down = current_point_cloud_->points.size();
+
+  // main
+  const int NO_POINT = -1000;
+  //  MatrixXd desc = NO_POINT * MatrixXd::Ones(20, 60);
+  cv::Mat desc(20, 60, CV_8UC1, cv::Scalar(0));
+
+  SemanticSurfel pt;
+  float azim_angle, azim_range; // wihtin 2d plane
+  int ring_idx, sctor_idx;
+  for (int pt_idx = 0; pt_idx < num_pts_scan_down; pt_idx++) {
+    pt.x = current_point_cloud_->points[pt_idx].x;
+    pt.y = current_point_cloud_->points[pt_idx].y;
+    pt.z = current_point_cloud_->points[pt_idx].z +
+           2.0; // naive adding is ok (all points should be > 0).
+
+    // xyz to ring, sector
+    azim_range = sqrt(pt.x * pt.x + pt.y * pt.y);
+    azim_angle = xy2theta(pt.x, pt.y);
+
+    // if range is out of roi, pass
+    if (azim_range > 80.0)
+      continue;
+
+    ring_idx = std::max(std::min(20, int(ceil((azim_range / 80.0) * 20))), 1);
+    sctor_idx = std::max(std::min(60, int(ceil((azim_angle / 360.0) * 60))), 1);
+
+    int high = int(pt.z / 80.0 * 255);
+    // taking maximum z
+    if (desc.at<uchar>(ring_idx - 1, sctor_idx - 1) <
+        high) // -1 means cpp starts from 0
+      desc.at<uchar>(ring_idx - 1, sctor_idx - 1) =
+          high; // update for taking maximum value at that bin
+  }
+
+  std::string path = "/smros_ws/shared_directory/sc_image/" +
+                     std::to_string(current_frame_id_) + ".png";
+  cv::imwrite(path, desc);
 }
 
 int main(int argc, char **argv) {

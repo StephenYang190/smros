@@ -44,6 +44,8 @@ protected:
   // set loop edge in factor graph
   bool SetLoopSureEdge(int from, int to, PoseType &pose);
 
+  void createSCImage();
+
 private:
   // store pose frame by frame
   std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>
