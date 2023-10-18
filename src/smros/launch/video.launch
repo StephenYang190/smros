@@ -1,7 +1,0 @@
-<launch>
-<rosparam command="load" file="$(find smros)/config/default.yaml" />
-<node name="map" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_config.rviz" output="screen" />
-<node name="target" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_target_config.rviz" output="screen" />
-<node name="input" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_input_config.rviz" output="screen" />
-<node name="semantic" pkg="rviz" type="rviz" args="-d $(find smros)/config/rviz_semantic_config.rviz" output="screen" />
-</launch>

@@ -38,6 +38,10 @@ SemanticMap::SemanticMap()
   nh_.getParam("pose_out_path", pose_out_path_);
   nh_.getParam("time_gap", time_gap_);
   pose_out_path_ = work_directory_ + pose_out_path_;
+  std::string file_name;
+  nh_.getParam("sequence", file_name);
+  pose_out_path_ += file_name + ".txt";
+  std::cout << pose_out_path_ << std::endl;
 
   surfel_sub_ =
       nh_.subscribe("surfel", 1000, &SemanticMap::SurfelCallback, this);
@@ -116,6 +120,14 @@ bool SemanticMap::GenerateMap(pcl::PointCloud<SemanticSurfel>::Ptr global_map) {
   if (semantic_map_.empty()) {
     return false;
   }
+  if (last_index_ == semantic_map_.size()) {
+    std::cout << "Save pose result in: " << pose_out_path_ << std::endl;
+    std::cout << "result: " << SaveGlobalPose2File() << std::endl;
+    timer_.stop();
+    return false;
+  } else {
+    last_index_ = semantic_map_.size();
+  }
   pcl::PointCloud<SemanticSurfel> transform_result;
   for (int i = 0; i < semantic_map_.size(); i++) {
     transform_result.clear();
@@ -151,7 +163,6 @@ bool SemanticMap::SetLoopSureEdge(int from, int to, PoseType &pose) {
     factor_graph_.updatePoses(global_poses_);
     last_loop_index_ = from;
   }
-
   return true;
 }
 
@@ -159,7 +170,8 @@ void SemanticMap::PublishMap(const ros::TimerEvent &event) {
   // generate global map
   pcl::PointCloud<SemanticSurfel>::Ptr global_map(
       new pcl::PointCloud<SemanticSurfel>);
-  GenerateMap(global_map);
+  if (!GenerateMap(global_map))
+    return;
   // broadcast point numbers
   for (int i = 0; i < 10; i++) {
     std::cout << "*\t";
@@ -284,6 +296,30 @@ void SemanticMap::createSCImage() {
                      std::to_string(current_frame_id_) + ".png";
   cv::imwrite(path, desc);
 }
+
+bool SemanticMap::SaveGlobalPose2File() {
+  // store pose in file
+  std::ofstream filehandle;
+  filehandle.open(pose_out_path_);
+  if (filehandle.is_open()) {
+    for (auto pose : global_poses_) {
+      // save pose as kitti style
+      for (int j = 0; j < 11; j++) {
+        int u = j / 4;
+        int v = j % 4;
+        filehandle << pose(u, v) << " ";
+      }
+      filehandle << pose(2, 3) << std::endl;
+    }
+    filehandle.close();
+  } else {
+    filehandle.close();
+    return false;
+  }
+  return true;
+}
+
+bool SemanticMap::SaveMap2File() { return false; }
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "semantic_map");

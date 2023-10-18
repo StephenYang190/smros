@@ -27,6 +27,8 @@ DOCKER_HOME="/home/$USER"
 # Local volumes
 function local_volumes() {
     volumes="-v $PROJECT_ROOT_DIR/src:$WORK_PATH \
+             -v $PROJECT_ROOT_DIR/model:$WORKDIR/model \
+             -v $PROJECT_ROOT_DIR/dataset:$WORKDIR/dataset \
              -v $PROJECT_ROOT_DIR/docker:$WORKDIR/docker \
              -v $PROJECT_ROOT_DIR/scripts:$WORKDIR/scripts \
              -v $PROJECT_ROOT_DIR/shared_directory:$WORKDIR/shared_directory \

@@ -1,5 +1,5 @@
 # Work directory
-work_directory: /smros_ws/catkin_ws/src/
+work_directory: /smros_ws/
 # Vertex parameters
 width: 900
 height: 64
@@ -34,7 +34,7 @@ is_key_selection: true
 
 # data path
 pcd_in_path: dataset/pcd_dataset/
-sequence: "00"
+sequence: "05"
 
 # Render setting
 render_gap: 500
@@ -43,6 +43,6 @@ render_gap: 500
 model_path: model/darknet53
 
 # Saving path
-pose_out_path: smros/result/pose_result/
-pcd_out_path: smros/result/pcd_result/
+pose_out_path: shared_directory/result/pose_result/
+pcd_out_path: shared_directory/result/pcd_result/
 loop_result: loop_result.txt

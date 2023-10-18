@@ -51,12 +51,15 @@ bool NonlinearEstimate::Align() {
       return false;
     }
     auto estimate_time = ros::Time::now();
-    std::cout << "match time: " << (match_time - start_time).toSec() << "s"
-              << std::endl;
-    std::cout << "reject time: " << (reject_time - match_time).toSec() << "s"
-              << std::endl;
-    std::cout << "estimate time : " << (estimate_time - reject_time).toSec()
-              << "s" << std::endl;
+    //    std::cout << "match time: " << (match_time - start_time).toSec() <<
+    //    "s"
+    //              << std::endl;
+    //    std::cout << "reject time: " << (reject_time - match_time).toSec() <<
+    //    "s"
+    //              << std::endl;
+    //    std::cout << "estimate time : " << (estimate_time -
+    //    reject_time).toSec()
+    //              << "s" << std::endl;
     if (converged_) {
       return true;
     }

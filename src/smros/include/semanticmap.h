@@ -46,6 +46,10 @@ protected:
 
   void createSCImage();
 
+  // store result
+  bool SaveGlobalPose2File();
+  bool SaveMap2File();
+
 private:
   // store pose frame by frame
   std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>
@@ -82,6 +86,8 @@ private:
   SCManager scManager_;
   std::queue<sensor_msgs::PointCloud2> point_cloud_queue_;
   pcl::PointCloud<SemanticSurfel>::Ptr current_point_cloud_;
+  // to stop mapping and store the result
+  int last_index_{0};
 };
 
 #endif // SRC_SEMANTICMAP_H

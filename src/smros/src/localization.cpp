@@ -51,7 +51,6 @@ void Localization::laserOdometry() {
   if (last_point_cloud_) {
     odometry->SetSourcePointCloud(current_point_cloud_);
     odometry->Align();
-    current_pose = odometry->GetFinalResult();
     //    Eigen::Matrix3d rotation = current_pose.block<3, 3>(0, 0);
     //    Eigen::Vector3d t(current_pose.block<3, 1>(0, 3));
     //    float distance = t.norm();

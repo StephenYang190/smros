@@ -71,7 +71,7 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
   generateVertexMap(point_labels);
   point2Surfel(semantic_result, msg.header.seq);
   generateNormal();
-  publishRangeImage();
+  //  publishRangeImage();
 
   pcl::PointCloud<SemanticSurfel> output_point_cloud;
   output_point_cloud.resize(output_point_number_);
@@ -89,6 +89,11 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
   }
   output_point_cloud.header.frame_id = msg.header.frame_id;
   output_point_cloud.header.seq = msg.header.seq;
+
+  //  std::string path = "/smros_ws/shared_directory/pcd/" +
+  //                     std::to_string(input_point_cloud_->header.seq) +
+  //                     ".pcd";
+  //  pcl::io::savePCDFile(path, output_point_cloud);
   sensor_msgs::PointCloud2 surfel_msg;
   pcl::toROSMsg(output_point_cloud, surfel_msg);
 
@@ -115,9 +120,9 @@ bool Perception::generateVertexMap(std::vector<int> &point_labels) {
   int u, v;
   for (int i = 0; i < num_points; i++) {
     // remove moving object
-    if (point_labels[i] < 40 || point_labels[i] > 90) {
-      continue;
-    }
+    //    if (point_labels[i] < 40 || point_labels[i] > 90) {
+    //      continue;
+    //    }
     // skip type with little points
     int label = point_labels[i];
     if (!label_valid[label]) {
@@ -133,6 +138,69 @@ bool Perception::generateVertexMap(std::vector<int> &point_labels) {
     vertex_maps_[u][v].radius = r_xyz;
     vertex_maps_[u][v].index = i;
     vertex_maps_[u][v].point.label = label;
+  }
+  // erode
+  std::vector<std::pair<int, int>> neighbor;
+  for (int i = -1; i < 2; i++) {
+    for (int j = -1; j < 2; j++) {
+      if (i == 0 && j == 0) {
+        continue;
+      }
+      neighbor.push_back({i, j});
+    }
+  }
+  std::vector<std::vector<int>> valid_mat(width_);
+  for (int i = 0; i < width_; i++) {
+    valid_mat[i].resize(height_, -1);
+  }
+  for (int u = 0; u < width_; u++) {
+    for (int v = 0; v < height_; v++) {
+      if (vertex_maps_[u][v].index == -1 || valid_mat[u][v] > 0) {
+        continue;
+      }
+      bool valid = true;
+      int label = vertex_maps_[u][v].point.label;
+      for (auto nei : neighbor) {
+        int n_u = u + nei.first;
+        int n_v = v + nei.second;
+        if (n_v > height_ - 1 || n_v < 0) {
+          continue;
+        }
+        if (n_u < 0) {
+          n_u = width_ - 1;
+        } else if (n_u > width_ - 1) {
+          n_u = 0;
+        }
+        if (vertex_maps_[n_u][n_v].index == -1 ||
+            vertex_maps_[n_u][n_v].point.label != label) {
+          valid = false;
+          break;
+        }
+      }
+      if (valid) {
+        valid_mat[u][v] = 1;
+        for (auto nei : neighbor) {
+          int n_u = u + nei.first;
+          int n_v = v + nei.second;
+          if (n_v > height_ - 1 || n_v < 0) {
+            continue;
+          }
+          if (n_u < 0) {
+            n_u = width_ - 1;
+          } else if (n_u > width_ - 1) {
+            n_u = 0;
+          }
+          valid_mat[n_u][n_v] = 1;
+        }
+      }
+    }
+  }
+  for (int u = 0; u < width_; u++) {
+    for (int v = 0; v < height_; v++) {
+      if (valid_mat[u][v] < 0) {
+        vertex_maps_[u][v].index = -1;
+      }
+    }
   }
 
   return true;
