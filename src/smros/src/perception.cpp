@@ -53,25 +53,12 @@ void Perception::PointCloudCallback(const sensor_msgs::PointCloud2 &msg) {
     points_xyzi_list[iter + 3] = input_point_cloud_->points[i].intensity;
   }
   // get semantic result
-  std::vector<std::vector<float>> semantic_result =
-      net_->infer(points_xyzi_list, num_points);
-  std::vector<int> point_labels(num_points);
-  for (int i = 0; i < num_points; i++) {
-    float prob = 0;
-    int label_index = 0;
-    for (int k = 0; k < 20; k++) {
-      if (prob <= semantic_result[i][k]) {
-        prob = semantic_result[i][k];
-        label_index = k;
-      }
-    }
-    point_labels[i] = net_->getLabel(label_index);
-  }
+  std::vector<int> point_labels = net_->infer(points_xyzi_list, num_points);
   // generate surfel
   generateVertexMap(point_labels);
-  point2Surfel(semantic_result, msg.header.seq);
+  point2Surfel(msg.header.seq);
   generateNormal();
-  //  publishRangeImage();
+  publishRangeImage();
 
   pcl::PointCloud<SemanticSurfel> output_point_cloud;
   output_point_cloud.resize(output_point_number_);
@@ -232,13 +219,11 @@ bool Perception::computeUVIndex(int point_index, int &u, int &v, float &r_xyz) {
   return true;
 }
 
-void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
-                              int timestamp) {
+void Perception::point2Surfel(int timestamp) {
   output_point_number_ = 0;
   auto &vertex_maps_ = vertex_maps_ptr_->GetMap();
   // construct point
-  std::vector<cv::Vec3b> color_mask =
-      net_->getLabels(semantic_result, input_point_cloud_->size());
+  std::vector<RangenetAPI::color> color_mask = net_->getColorMask();
   for (int u = 0; u < width_; u++) {
     for (int v = 0; v < height_; v++) {
       // no point fit in this site
@@ -249,9 +234,9 @@ void Perception::point2Surfel(std::vector<std::vector<float>> &semantic_result,
       auto &point = vertex_maps_[u][v].point;
       pcl::copyPoint(input_point_cloud_->points[index], point);
       // set label
-      point.r = color_mask[index][0];
-      point.g = color_mask[index][1];
-      point.b = color_mask[index][2];
+      point.r = std::get<0>(color_mask[index]);
+      point.g = std::get<1>(color_mask[index]);
+      point.b = std::get<2>(color_mask[index]);
       point.u = u;
       point.v = v;
       point.confidence = initial_confidence_;

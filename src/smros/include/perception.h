@@ -27,8 +27,7 @@ protected:
   bool computeUVIndex(int point_index, int &u, int &v, float &r_xyz);
 
   // transform point to surfel
-  void point2Surfel(std::vector<std::vector<float>> &semantic_result,
-                    int timestamp);
+  void point2Surfel(int timestamp);
 
   // verify range image
   void publishRangeImage();

@@ -9,13 +9,13 @@
 
 class KittiReader {
 
- protected:
- public:
+protected:
+public:
   KittiReader();
   void run();
   bool readPointCloud();
 
- private:
+private:
   // ros node handle
   ros::NodeHandle nh_;
   ros::Publisher point_cloud_pub_;
@@ -24,6 +24,7 @@ class KittiReader {
   std::string sequence_;
   std::vector<std::string> pcd_lists_;
   int current_index_;
+  bool repeat_;
 };
 
-#endif  //SRC_KITTIREADER_H
+#endif // SRC_KITTIREADER_H

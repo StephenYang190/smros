@@ -199,6 +199,7 @@ void NonlinearEstimate::Reject() {
         source_cloud_->points[iter.second].label) {
       continue;
     }
+    
     if (target_planarity_[iter.first] >= min_planarity_) {
       reject_result_[iter.first] = iter.second;
     }

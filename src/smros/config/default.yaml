@@ -46,3 +46,6 @@ model_path: model/darknet53
 pose_out_path: shared_directory/result/pose_result/
 pcd_out_path: shared_directory/result/pcd_result/
 loop_result: loop_result.txt
+
+# Reader setting
+repeat_reading: true
